@@ -11,7 +11,9 @@ import nl.tudelft.trustchain.eurotoken.entity.TrustScore
  * 50 public keys of transactions he/she made. For every public key,
  * a trust score is maintained in order to build the web of trust.
  */
-class TrustStore(context: Context) {
+class TrustStore(
+    context: Context
+) {
     private val driver = AndroidSqliteDriver(Database.Schema, context, "eurotoken.db")
     private val database = Database(driver)
 
@@ -19,8 +21,8 @@ class TrustStore(context: Context) {
      * Maps the keys and accompanying trust scores out of the database into a kotlin [TrustScore] object.
      */
     private val messageMapper = {
-            public_key: ByteArray,
-            score: Long
+        public_key: ByteArray,
+        score: Long
         ->
         TrustScore(
             public_key,
@@ -31,16 +33,12 @@ class TrustStore(context: Context) {
     /**
      * Retrieve all [TrustScore]s from the database.
      */
-    fun getAllScores(): List<TrustScore> {
-        return database.dbTrustScoreQueries.getAll(messageMapper).executeAsList()
-    }
+    fun getAllScores(): List<TrustScore> = database.dbTrustScoreQueries.getAll(messageMapper).executeAsList()
 
     /**
      * Retrieve the [TrustScore]s of a specific public key.
      */
-    fun getScore(publicKey: ByteArray): Long? {
-        return database.dbTrustScoreQueries.getScore(publicKey).executeAsOneOrNull()
-    }
+    fun getScore(publicKey: ByteArray): Long? = database.dbTrustScoreQueries.getScore(publicKey).executeAsOneOrNull()
 
     /**
      * Enumeration of available trust score update strategies.
@@ -74,12 +72,13 @@ class TrustStore(context: Context) {
                 return
             }
 
-            val newScore = when (strategy) {
-                UpdateStrategy.LINEAR -> linearUpdate(currentScore)
-                UpdateStrategy.DECAY_WEIGHTED -> decayWeightedUpdate(currentScore, params)
-                UpdateStrategy.THRESHOLD_BOOST -> thresholdBoostUpdate(currentScore, params)
-                UpdateStrategy.LOGISTIC_CAP -> logisticCapUpdate(currentScore)
-            }
+            val newScore =
+                when (strategy) {
+                    UpdateStrategy.LINEAR -> linearUpdate(currentScore)
+                    UpdateStrategy.DECAY_WEIGHTED -> decayWeightedUpdate(currentScore, params)
+                    UpdateStrategy.THRESHOLD_BOOST -> thresholdBoostUpdate(currentScore, params)
+                    UpdateStrategy.LOGISTIC_CAP -> logisticCapUpdate(currentScore)
+                }
 
             // We need to implement custom update methods since SQLDelight only provides increment by 1
             updateScoreDirectly(publicKey, newScore)
@@ -92,9 +91,7 @@ class TrustStore(context: Context) {
      * Linear update strategy (original implementation):
      * score = score + 1
      */
-    private fun linearUpdate(currentScore: Int): Int {
-        return minOf(currentScore + 1, MAX_SCORE)
-    }
+    private fun linearUpdate(currentScore: Int): Int = minOf(currentScore + 1, MAX_SCORE)
 
     /**
      * Decay-weighted update strategy:
@@ -105,7 +102,10 @@ class TrustStore(context: Context) {
      * @param params Map containing "a" (decay factor) and "c" (constant addition)
      * @return The updated score capped at MAX_SCORE
      */
-    private fun decayWeightedUpdate(currentScore: Int, params: Map<String, Double>): Int {
+    private fun decayWeightedUpdate(
+        currentScore: Int,
+        params: Map<String, Double>
+    ): Int {
         val a = params["a"] ?: DEFAULT_DECAY_FACTOR
         val c = params["c"] ?: DEFAULT_CONSTANT_ADDITION
 
@@ -121,7 +121,10 @@ class TrustStore(context: Context) {
      * @param params Map containing "N" (threshold) and "B" (boost amount)
      * @return The updated score capped at MAX_SCORE
      */
-    private fun thresholdBoostUpdate(currentScore: Int, params: Map<String, Double>): Int {
+    private fun thresholdBoostUpdate(
+        currentScore: Int,
+        params: Map<String, Double>
+    ): Int {
         val threshold = params["N"]?.toInt() ?: DEFAULT_THRESHOLD
         val boost = params["B"]?.toInt() ?: DEFAULT_BOOST
 
@@ -149,9 +152,21 @@ class TrustStore(context: Context) {
      * Updates the score directly with a new value.
      * We need this because SQLDelight only provides increment by 1.
      */
-    private fun updateScoreDirectly(publicKey: ByteArray, newScore: Int) {
+    private fun updateScoreDirectly(
+        publicKey: ByteArray,
+        newScore: Int
+    ) {
         // Update the score directly
         database.dbTrustScoreQueries.updateScore(newScore.toLong(), publicKey)
+    }
+
+    fun normalizeTrustScoreSigmoid(
+        trustScore: Long,
+        mid: Double = MAX_SCORE / 2.0,
+        k: Double = 0.1
+    ): Double {
+        val x = trustScore.toDouble()
+        return 1.0 / (1.0 + kotlin.math.exp(-k * (x - mid)))
     }
 
     /**
@@ -163,7 +178,7 @@ class TrustStore(context: Context) {
 
     companion object {
         private lateinit var instance: TrustStore
-        
+
         // Constants for trust score calculations
         const val MAX_SCORE = 100
         const val DEFAULT_DECAY_FACTOR = 0.2

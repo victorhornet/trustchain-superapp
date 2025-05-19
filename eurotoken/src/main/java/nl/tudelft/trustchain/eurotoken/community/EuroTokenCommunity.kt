@@ -134,9 +134,7 @@ class EuroTokenCommunity(
         private val trustStore: TrustStore,
         private val context: Context,
     ) : Overlay.Factory<EuroTokenCommunity>(EuroTokenCommunity::class.java) {
-        override fun create(): EuroTokenCommunity {
-            return EuroTokenCommunity(store, trustStore, context)
-        }
+        override fun create(): EuroTokenCommunity = EuroTokenCommunity(store, trustStore, context)
     }
 
     /**
