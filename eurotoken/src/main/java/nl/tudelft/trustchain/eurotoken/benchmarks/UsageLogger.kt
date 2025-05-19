@@ -1,6 +1,7 @@
 package nl.tudelft.trustchain.eurotoken.benchmarks
 
 import android.content.Context
+import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -35,6 +36,7 @@ object UsageLogger {
         )
         scope.launch { dao?.insertTransactionStartEvent(event) }
         currentTransactionId = transactionId;
+        Log.i("UsageLogger", "Transaction started: $transactionId")
         return transactionId // Return to caller to correlate subsequent events
     }
 
@@ -48,6 +50,7 @@ object UsageLogger {
             error = error
         )
         scope.launch { dao?.insertTransactionErrorEvent(event) }
+        Log.i("UsageLogger", "Transaction error: $error")
     }
 
     fun logTransactionCancel(reason: TransactionCancelReason) {
@@ -60,6 +63,7 @@ object UsageLogger {
             reason = reason
         )
         scope.launch { dao?.insertTransactionCancelEvent(event) }
+        Log.i("UsageLogger", "Transaction cancelled: $reason")
     }
 
     fun logTransactionDone() {
@@ -71,6 +75,7 @@ object UsageLogger {
             timestamp = getCurrentTimestamp()
         )
         scope.launch { dao?.insertTransactionDoneEvent(event) }
+        Log.i("UsageLogger", "Transaction done")
     }
 
     fun logTransferStart(payloadSize: Long, direction: TransferDirection): String {
@@ -87,6 +92,7 @@ object UsageLogger {
         )
         currentTransferId = transferId
         scope.launch { dao?.insertTransferStartEvent(event) }
+        Log.i("UsageLogger", "Transfer started: $transferId")
         return transferId // Return to caller for correlating end/error events
     }
 
@@ -99,6 +105,7 @@ object UsageLogger {
             timestamp = getCurrentTimestamp()
         )
         scope.launch { dao?.insertTransferDoneEvent(event) }
+        Log.i("UsageLogger", "Transfer done")
     }
 
     fun logTransferError(error: TransferError) {
@@ -111,5 +118,6 @@ object UsageLogger {
             error = error
         )
         scope.launch { dao?.insertTransferErrorEvent(event) }
+        Log.i("UsageLogger", "Transfer error: $error")
     }
 }
