@@ -10,6 +10,8 @@ object UsageLogger {
 
     private var dao: UsageEventsDao? = null
     private val scope = CoroutineScope(Dispatchers.IO) // Use IO dispatcher for database operations
+    private var currentTransactionId: String? = null;
+    private var currentTransferId: String? = null
 
     // Call this ideally from your Application class or a central initialization point
     fun initialize(context: Context) {
@@ -32,59 +34,79 @@ object UsageLogger {
             payload = payload
         )
         scope.launch { dao?.insertTransactionStartEvent(event) }
+        currentTransactionId = transactionId;
         return transactionId // Return to caller to correlate subsequent events
     }
 
-    fun logTransactionError(transactionId: String, error: String) {
+    fun logTransactionError(error: String) {
+        if (currentTransactionId == null) {
+            throw IllegalStateException("logTransactionError called before logTransactionStart")
+        }
         val event = TransactionErrorEvent(
-            transactionId = transactionId,
+            transactionId = currentTransactionId !!,
             timestamp = getCurrentTimestamp(),
             error = error
         )
         scope.launch { dao?.insertTransactionErrorEvent(event) }
     }
 
-    fun logTransactionCancel(transactionId: String, reason: TransactionCancelReason) {
+    fun logTransactionCancel(reason: TransactionCancelReason) {
+        if (currentTransactionId == null) {
+            throw IllegalStateException("logTransactionCancel called before logTransactionStart")
+        }
         val event = TransactionCancelEvent(
-            transactionId = transactionId,
+            transactionId = currentTransactionId !!,
             timestamp = getCurrentTimestamp(),
             reason = reason
         )
         scope.launch { dao?.insertTransactionCancelEvent(event) }
     }
 
-    fun logTransactionDone(transactionId: String) {
+    fun logTransactionDone() {
+        if (currentTransactionId == null) {
+            throw IllegalStateException("logTransactionDone called before logTransactionStart")
+        }
         val event = TransactionDoneEvent(
-            transactionId = transactionId,
+            transactionId = currentTransactionId !!,
             timestamp = getCurrentTimestamp()
         )
         scope.launch { dao?.insertTransactionDoneEvent(event) }
     }
 
-    fun logTransferStart(transactionId: String, payloadSize: Long, direction: TransferDirection): String {
+    fun logTransferStart(payloadSize: Long, direction: TransferDirection): String {
+        if (currentTransactionId == null) {
+            throw IllegalStateException("logTransferStart called before logTransactionStart")
+        }
         val transferId = generateTransferId()
         val event = TransferStartEvent(
-            transactionId = transactionId,
+            transactionId = currentTransactionId !!,
             transferId = transferId,
             timestamp = getCurrentTimestamp(),
             payloadSize = payloadSize,
             direction = direction
         )
+        currentTransferId = transferId
         scope.launch { dao?.insertTransferStartEvent(event) }
         return transferId // Return to caller for correlating end/error events
     }
 
-    fun logTransferDone(transferId: String) {
+    fun logTransferDone() {
+        if (currentTransferId == null) {
+            throw IllegalStateException("logTransferDone called before logTransferStart")
+        }
         val event = TransferDoneEvent(
-            transferId = transferId,
+            transferId = currentTransferId !!,
             timestamp = getCurrentTimestamp()
         )
         scope.launch { dao?.insertTransferDoneEvent(event) }
     }
 
-    fun logTransferError(transferId: String, error: TransferError) {
+    fun logTransferError(error: TransferError) {
+        if (currentTransferId == null) {
+            throw IllegalStateException("logTransferError called before logTransferStart")
+        }
         val event = TransferErrorEvent(
-            transferId = transferId,
+            transferId = currentTransferId !!,
             timestamp = getCurrentTimestamp(),
             error = error
         )
