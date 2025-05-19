@@ -10,7 +10,7 @@ class EuroTokenMainActivity : BaseActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Initialize UsageLogger
+
         UsageLogger.initialize(applicationContext)
     }
 
@@ -20,5 +20,6 @@ class EuroTokenMainActivity : BaseActivity() {
     object EurotokenPreferences {
         const val EUROTOKEN_SHARED_PREF_NAME = "eurotoken"
         const val DEMO_MODE_ENABLED = "demo_mode_enabled"
+        const val NFC_MIMETYPE = "vnd.eurotoken"
     }
 }
