@@ -22,6 +22,7 @@ import nl.tudelft.ipv8.util.toHex
 import org.json.JSONObject
 import nl.tudelft.trustchain.common.eurotoken.TransactionRepository
 import nl.tudelft.trustchain.common.contacts.ContactStore
+import nl.tudelft.trustchain.eurotoken.benchmarks.UsageLogger
 
 class RequestMoneyFragment : EurotokenBaseFragment(R.layout.fragment_request_money) {
     private var _binding: FragmentRequestMoneyBinding? = null
@@ -47,6 +48,7 @@ class RequestMoneyFragment : EurotokenBaseFragment(R.layout.fragment_request_mon
         super.onViewCreated(view, savedInstanceState)
 
         val transactionArgs = navArgs.transactionArgs
+
 
         if (transactionArgs == null) {
             Toast.makeText(requireContext(), "Error: Request details missing.", Toast.LENGTH_LONG).show()
@@ -90,9 +92,9 @@ class RequestMoneyFragment : EurotokenBaseFragment(R.layout.fragment_request_mon
         }
 
         // nfc
-        // still static
         binding.btnNfcRequest.setOnClickListener {
             if (transactionArgs.channel == Channel.NFC) {
+                UsageLogger.logTransactionStart(jsonData)
                 val payloadBytes = jsonData.toByteArray(Charsets.UTF_8)
                 EuroTokenHCEService.setPayload(payloadBytes)
                 Toast.makeText(requireContext(), "NFC Re-activated (Requesting ${TransactionRepository.prettyAmount(amount)})", Toast.LENGTH_LONG).show()
@@ -100,6 +102,7 @@ class RequestMoneyFragment : EurotokenBaseFragment(R.layout.fragment_request_mon
         }
         binding.btnContinue.setOnClickListener {
             if (transactionArgs.channel == Channel.NFC) {
+                UsageLogger.logTransactionDone()
                 EuroTokenHCEService.clearPayload()
             }
             findNavController().navigate(R.id.action_requestMoneyFragment_to_transactionsFragment)
@@ -118,6 +121,7 @@ class RequestMoneyFragment : EurotokenBaseFragment(R.layout.fragment_request_mon
         super.onDestroyView()
         if (navArgs.transactionArgs?.channel == Channel.NFC) {
             Log.d(TAG, "RequestMoneyFragment onDestroyView, clearing HCE payload for NFC.")
+            UsageLogger.logTransactionDone()
             EuroTokenHCEService.clearPayload()
         }
         _binding = null

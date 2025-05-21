@@ -14,7 +14,7 @@ object UsageLogger {
     private var currentTransactionId: String? = null;
     private var currentTransferId: String? = null
 
-    // Call this ideally from your Application class or a central initialization point
+
     fun initialize(context: Context) {
         if (dao == null) {
             dao = UsageAnalyticsDatabase.getInstance(context.applicationContext).usageEventsDao()
@@ -37,7 +37,7 @@ object UsageLogger {
         scope.launch { dao?.insertTransactionStartEvent(event) }
         currentTransactionId = transactionId;
         Log.i("UsageLogger", "Transaction started: $transactionId")
-        return transactionId // Return to caller to correlate subsequent events
+        return transactionId
     }
 
     fun logTransactionError(error: String) {
@@ -68,7 +68,8 @@ object UsageLogger {
 
     fun logTransactionDone() {
         if (currentTransactionId == null) {
-            throw IllegalStateException("logTransactionDone called before logTransactionStart")
+            // do nothing
+            return
         }
         val event = TransactionDoneEvent(
             transactionId = currentTransactionId !!,
@@ -78,7 +79,7 @@ object UsageLogger {
         Log.i("UsageLogger", "Transaction done")
     }
 
-    fun logTransferStart(payloadSize: Long, direction: TransferDirection): String {
+    fun logTransferStart( direction: TransferDirection, payloadSize: Int?): String {
         if (currentTransactionId == null) {
             throw IllegalStateException("logTransferStart called before logTransactionStart")
         }
@@ -93,16 +94,17 @@ object UsageLogger {
         currentTransferId = transferId
         scope.launch { dao?.insertTransferStartEvent(event) }
         Log.i("UsageLogger", "Transfer started: $transferId")
-        return transferId // Return to caller for correlating end/error events
+        return transferId
     }
 
-    fun logTransferDone() {
+    fun logTransferDone(receivedPayload: Int?) {
         if (currentTransferId == null) {
             throw IllegalStateException("logTransferDone called before logTransferStart")
         }
         val event = TransferDoneEvent(
             transferId = currentTransferId !!,
-            timestamp = getCurrentTimestamp()
+            timestamp = getCurrentTimestamp(),
+            receivedPayload = receivedPayload
         )
         scope.launch { dao?.insertTransferDoneEvent(event) }
         Log.i("UsageLogger", "Transfer done")
@@ -119,5 +121,17 @@ object UsageLogger {
         )
         scope.launch { dao?.insertTransferErrorEvent(event) }
         Log.i("UsageLogger", "Transfer error: $error")
+    }
+
+    fun logTransferCancelled() {
+        if (currentTransferId == null) {
+            return
+        }
+        val event = TransferCancelledEvent(
+            transferId = currentTransferId !!,
+            timestamp = getCurrentTimestamp()
+        )
+        scope.launch { dao?.insertTransferCancelledEvent(event) }
+        Log.i("UsageLogger", "Transfer cancelled")
     }
 }

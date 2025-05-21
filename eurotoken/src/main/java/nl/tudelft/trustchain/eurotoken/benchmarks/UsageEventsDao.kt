@@ -29,6 +29,9 @@ interface UsageEventsDao {
     @Insert
     suspend fun insertTransferErrorEvent(event: TransferErrorEvent)
 
+    @Insert
+    suspend fun insertTransferCancelledEvent(event: TransferCancelledEvent)
+
     // --- Queries for statistics ---
 
     @Query("SELECT * FROM transaction_start_events")
@@ -58,14 +61,17 @@ interface UsageEventsDao {
     @Query("SELECT * FROM transfer_start_events WHERE transactionId = :transactionId")
     suspend fun getTransferStartEventsForTransaction(transactionId: String): List<TransferStartEvent>
 
+    @Query("SELECT * FROM transfer_done_events WHERE transactionId = :transactionId")
+    suspend fun getTransferDoneEventsForTransaction(transactionId: String): List<TransferDoneEvent>
+
     @Query("SELECT * FROM transfer_done_events")
     suspend fun getAllTransferDoneEvents(): List<TransferDoneEvent>
 
     @Query("SELECT * FROM transfer_done_events WHERE transferId = :transferId")
     suspend fun getTransferDoneEvent(transferId: String): TransferDoneEvent?
 
-    @Query("SELECT * FROM transfer_start_events WHERE transactionId = :transactionId AND transferId = :transferId")
-    suspend fun getTransferStartEvent(transactionId: String, transferId: String): TransferStartEvent?
+    @Query("SELECT * FROM transfer_start_events WHERE transferId = :transferId")
+    suspend fun getTransferStartEvent(transferId: String): TransferStartEvent?
 
     @Query("SELECT * FROM transfer_start_events WHERE transferId = :transferId")
     suspend fun getTransferStartEventByTransferId(transferId: String): TransferStartEvent?

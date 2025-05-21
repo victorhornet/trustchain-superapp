@@ -26,7 +26,6 @@ import nl.tudelft.trustchain.common.util.QRCodeUtils
 import nl.tudelft.trustchain.common.util.viewBinding
 import nl.tudelft.trustchain.eurotoken.EuroTokenMainActivity
 import nl.tudelft.trustchain.eurotoken.R
-import nl.tudelft.trustchain.eurotoken.benchmarks.UsageLogger
 import nl.tudelft.trustchain.eurotoken.community.EuroTokenCommunity
 import nl.tudelft.trustchain.eurotoken.databinding.FragmentTransferEuroBinding
 import nl.tudelft.trustchain.eurotoken.ui.EurotokenBaseFragment
@@ -117,6 +116,8 @@ class TransferFragment : EurotokenBaseFragment(R.layout.fragment_transfer_euro) 
             binding.missingNameLayout.visibility = View.GONE
             binding.txtOwnName.text = "Your balance (" + ownContact.name + ")"
         }
+
+
 
         fun addName() {
             val newName = binding.edtMissingName.text.toString()
@@ -220,7 +221,6 @@ class TransferFragment : EurotokenBaseFragment(R.layout.fragment_transfer_euro) 
             try {
                 val connectionData = ConnectionData(it)
                 // Log transaction start for sending money via QR scan
-                val transactionID = UsageLogger.logTransactionStart(connectionData.toString())
 
                 if (connectionData.type == "transfer") {
                     val args = Bundle()
@@ -262,7 +262,6 @@ class TransferFragment : EurotokenBaseFragment(R.layout.fragment_transfer_euro) 
                             euroTokenCommunity.sendAddressesOfLastTransactions(peer)
                         }
                     } catch (e: Exception) {
-                        UsageLogger.logTransactionError(transactionID, e.toString())
                         logger.error { e }
                         Toast.makeText(
                             requireContext(),

@@ -11,7 +11,7 @@ data class TransactionStartEvent(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val transactionId: String,
     val timestamp: Long,
-    val payload: String // JSON string for amount, currency, notes etc.
+    val payload: String
 )
 
 /**
@@ -60,7 +60,7 @@ data class TransferStartEvent(
     val transferId: String,
     val transactionId: String,
     val timestamp: Long,
-    val payloadSize: Long,
+    val payloadSize: Int,
     val direction: TransferDirection
 )
 
@@ -77,6 +77,7 @@ data class TransferDoneEvent(
     @PrimaryKey
     val transferId: String,
     val timestamp: Long,
+    val receivedPayload: Int?
 )
 
 /**
@@ -101,8 +102,18 @@ data class TransferErrorEvent(
     val error: TransferError
 )
 
+@Entity(tableName = "transfer_cancel_events")
+data class TransferCancelledEvent(
+    @PrimaryKey
+    val transferId: String,
+    val timestamp: Long
+)
+
 enum class TransferError(val value: String) {
     TIMEOUT("timeout"),
     DISCONNECTED("disconnected"),
-    MALFORMED("malformed")
+    MALFORMED("malformed"),
+    IO_ERROR("io_error"),
+    UNKNOWN("unknown"),
+    PAYLOAD_EMPTY("payload_empty")
 }
