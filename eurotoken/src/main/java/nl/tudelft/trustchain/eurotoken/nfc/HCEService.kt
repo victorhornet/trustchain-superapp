@@ -1,5 +1,5 @@
 package nl.tudelft.trustchain.eurotoken.nfc
-
+import kotlin.math.min
 import android.nfc.cardemulation.HostApduService
 import android.os.Bundle
 import android.util.Log
@@ -13,7 +13,7 @@ class EuroTokenHCEService : HostApduService() {
         private const val TAG = "EuroTokenHCE"
 
         // isodep apdu max size 255 bytes -> saftey margin
-        private const val MAX_EXPECTED_CHUNK_SIZE = 250 // now apdu ? potentially chunkking?
+        private const val MAX_CHUNK = 250 // now apdu ? potentially chunkking?
 
         // Status words
         private val SW_OK = byteArrayOf(0x90.toByte(), 0x00.toByte()) // success
@@ -22,7 +22,7 @@ class EuroTokenHCEService : HostApduService() {
         private val SW_INS_NOT_SUPPORTED = byteArrayOf(0x6D.toByte(), 0x00.toByte())
         private val SW_CLA_NOT_SUPPORTED = byteArrayOf(0x6E.toByte(), 0x00.toByte())
         private val SW_WRONG_LENGTH = byteArrayOf(0x67.toByte(), 0x00.toByte()) // for chunking
-
+        private val SW_WRONG_PARAMETERS_P1P2 = byteArrayOf(0x6B.toByte(), 0x00.toByte()) 
         // AID ->HCE service only activated when read specific AID
         const val AID_EUROTOKEN = "F222222222"
 
@@ -42,43 +42,19 @@ class EuroTokenHCEService : HostApduService() {
             0x00.toByte() // Le = 00 (Request maximum available data)
         )
 
+        val CMD_READ_BINARY_INS = 0xB0.toByte()
+
         // didnt work without
         // so now shared mutable state
         @Volatile
         private var currentPayloadBytes: ByteArray? = null
 
-        // TODO still static data testing
-        // Potentially clear after retrieval?
-//        const val NFC_TEST_TXT = "NFC_TESTING"
-//        val NFC_TEST = NFC_TEST_TXT.toByteArray(Charsets.UTF_8)
-
-        // potentially chunking if size bigger than max NFC??
-
-//        fun setPayload(payload: ByteArray?) {
-//            synchronized(this) {
-//                currentPayloadBytes = payload
-//                if (payload != null && payload.isNotEmpty()) {
-//                    dataChunks = payload.asList().chunked(MAX_CHUNK_SIZE)
-//                        .map { it.toByteArray() }
-//                    currentChunkIndex = 0
-//                    Log.d(TAG, "Payload set for HCE. Total size: ${payload.size}, Chunks: ${dataChunks?.size ?: 0}")
-//                } else {
-//                    dataChunks = null
-//                    currentChunkIndex = 0
-//                    if (payload == null) Log.d(TAG, "Payload cleared for HCE.")
-//                    else Log.d(TAG, "Empty payload provided to HCE.")
-//                }
-//            }
-//        }
-
-        fun setPayload(payload: ByteArray?) {
+        
+        fun setPayload(payloadWithHeader: ByteArray?) {
             synchronized(this) {
-                currentPayloadBytes = payload
-                if (payload != null) {
-                    if (payload.size > MAX_EXPECTED_CHUNK_SIZE) {
-                        Log.w(TAG, "Payload size (${payload.size}) exceeds MAX_EXPECTED_CHUNK_SZE ($MAX_EXPECTED_CHUNK_SIZE). .")
-                    }
-                    Log.d(TAG, "Payload set for HCE. Size: ${payload.size}")
+                currentPayloadBytes = payloadWithHeader
+                if (payloadWithHeader != null) {
+                    Log.d(TAG, "Payload (with header) set for HCE. Total HCE payload size: ${payloadWithHeader.size}")
                 } else {
                     Log.d(TAG, "Payload cleared for HCE.")
                 }
@@ -88,6 +64,23 @@ class EuroTokenHCEService : HostApduService() {
         fun clearPayload() {
             setPayload(null)
         }
+        // fun setPayload(payload: ByteArray?) {
+        //     synchronized(this) {
+        //         currentPayloadBytes = payload
+        //         if (payload != null) {
+        //             if (payload.size > MAX_CHUNK) {
+        //                 Log.w(TAG, "Payload size (${payload.size}) exceeds MAX_EXPECTED_CHUNK_SZE ($MAX_CHUNK). .")
+        //             }
+        //             Log.d(TAG, "Payload set for HCE. Size: ${payload.size}")
+        //         } else {
+        //             Log.d(TAG, "Payload cleared for HCE.")
+        //         }
+        //     }
+        // }
+
+        // fun clearPayload() {
+        //     setPayload(null)
+        // }
     }
 
     // android sys calls this when apdu command is received from the reader
@@ -98,9 +91,12 @@ class EuroTokenHCEService : HostApduService() {
         }
         Log.i(TAG, "APDU Received: ${commandApdu.toHex()}")
 
+        // AIDlength is lenght of commanddata
+        // included  0xFF to counteract sign extension
+        // ensures 255, not -1.. needed for proper process :)
         if (isSelectAidCommand(commandApdu)) {
             Log.i(TAG, "SELECT AID command received")
-            val aidLength = commandApdu[4].toInt() // lc
+            val aidLength = commandApdu[4].toInt() and 0xFF // issssssssssxxxxxx
             val aidBytes = commandApdu.copyOfRange(5, 5 + aidLength)
             if (AID_EUROTOKEN == aidBytes.toHex()) {
                 Log.i(TAG, "EuroToken AID selected successfully")
@@ -113,20 +109,47 @@ class EuroTokenHCEService : HostApduService() {
         val cmd_read_data_ins = 0xB0.toByte()
         if (commandApdu.size >= 4 && commandApdu[0] == 0x00.toByte() && commandApdu[1] == cmd_read_data_ins) {
             synchronized(EuroTokenHCEService) {
-                val payloadToSend = currentPayloadBytes
-                if (payloadToSend == null) {
+                val payload = currentPayloadBytes
+                if (payload == null) {
                     Log.w(TAG, "READ DATA: No payload available.")
                     return SW_CONDITIONS_NOT_SATISFIED
                 }
 
-                //  check if our payload is too big.
-                if (payloadToSend.size > MAX_EXPECTED_CHUNK_SIZE) {
-                    Log.e(TAG, "READ DATA: Payload size (${payloadToSend.size}) is too large for a single APDU response without chunking.")
-                    return SW_WRONG_LENGTH
+                if (commandApdu.size < 5) { // should be-> CLA, INS, P1, P2, Le
+                    Log.w(TAG, "READ BINARY: APDU too short.")
+                    return SW_WRONG_PARAMETERS_P1P2
                 }
 
-                Log.d(TAG, "Sending entire payload (size: ${payloadToSend.size})")
-                return payloadToSend + SW_OK
+                // p1 & p2 offset for chunking
+                val p1Offset = commandApdu[2].toInt() and 0xFF
+                val p2Offset = commandApdu[3].toInt() and 0xFF
+                val offset = (p1Offset shl 8) + p2Offset
+
+                var le = commandApdu[4].toInt() and 0xFF
+                if (le == 0) {
+                    // ISO7816-4 state that Le=0 means 256 for short APDUs
+                    // thus reader expects up to 256 bytes
+                    le = 256 
+                }
+                // (header + actual data),  check if offset  isnt out of bounds
+                if (offset < 0 || offset > payload.size) {
+                    Log.e(TAG, "READ BINARY: Offset $offset out of bounds for HCE payload size ${payload.size}")
+                    return SW_WRONG_PARAMETERS_P1P2 
+                }
+
+                //bytes to read by reader && actual bytes to send to reader
+                val bytesToRead = min(le, MAX_CHUNK)
+                val actualBytes = min(bytesToRead, payload.size - offset)
+
+                if (actualBytes < 0) {
+                    Log.e(TAG, "READ BINARY: actualBytesToSend calculation error. Offset: $offset, Payload Size: ${payload.size}")
+                    return SW_UNKNOWN_ERROR // Should not happen with correct offset check
+                }
+
+                val chunk = payload.copyOfRange(offset, offset + actualBytes)
+                Log.d(TAG, "READ BINARY: HCE_payload_offset=$offset, Le_from_reader=$le (card_will_send_max $bytesToRead), sending $actualBytes bytes.")
+                return chunk + SW_OK
+
             }
         }
         return SW_INS_NOT_SUPPORTED
@@ -155,4 +178,5 @@ class EuroTokenHCEService : HostApduService() {
             .map { it.toInt(16).toByte() }
             .toByteArray()
     }
+    private fun Byte.toHex(): String = "%02x".format(this).uppercase()
 }

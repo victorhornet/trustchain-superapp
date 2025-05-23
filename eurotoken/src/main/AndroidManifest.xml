@@ -4,23 +4,24 @@
     <application>
         <activity android:name=".EuroTokenMainActivity"></activity>
         
-        <activity
+        <!-- <activity
             android:name="nl.tudelft.trustchain.eurotoken.ui.NfcActivity"
             android:exported="true"
             android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.nfc.action.NDEF_DISCOVERED" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <!-- <data android:mimeType="application/vnd.eurotoken" /> -->
+                <data android:mimeType="application/vnd.eurotoken" />
                 <data android:mimeType="text/plain" />
             </intent-filter>
 
-            <!-- TESTING -->
-            <!-- <intent-filter>
+            TESTING
+            <<intent-filter>
                 <action android:name="android.nfc.action.TAG_DISCOVERED" />
                 <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter> -->
-        </activity>
+            </intent-filter>>
+        </activity> -->
+        
 
         <!-- hceService -->
         <service
