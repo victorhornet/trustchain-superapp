@@ -13,7 +13,8 @@ import androidx.room.RoomDatabase
         TransactionCancelEvent::class,
         TransferStartEvent::class,
         TransferErrorEvent::class,
-        TransferDoneEvent::class
+        TransferDoneEvent::class,
+        TransferCancelledEvent::class
     ],
     version = 1, // Increment if schema changes.
     exportSchema = false
