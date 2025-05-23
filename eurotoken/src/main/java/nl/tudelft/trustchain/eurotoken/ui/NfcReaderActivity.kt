@@ -21,7 +21,7 @@ import nl.tudelft.ipv8.util.hexToBytes
 import nl.tudelft.trustchain.eurotoken.databinding.ActivityNfcReaderBinding
 import java.util.*
 import java.nio.ByteBuffer
-import java.io.ByteArrayOutputStream 
+import java.io.ByteArrayOutputStream
 // for reading data
 
 // TODO check if we can delete nfchandler, nfcState, and nfcViewModel
@@ -44,13 +44,11 @@ class NfcReaderActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
         private const val MAX_CHUNK = 250
         private const val LENGTH_HEADER_SIZE = 4 // PREPENDING LENGTH
 
-
-        //same as in hceservice 
+        // same as in hceservice
         // ISO7816-4 state that Le=0 means 256 for short APDUs
         // thus reader expects up to 256 bytes
         private const val CHUNK_SIZE_LE: Byte = 0x00.toByte()
-        
-        
+
         // extra
 //        const val EXTRA_NFC_DATA = "nl.tudelft.trustchain.eurotoken.NFC_DATA"
 //        const val EXTRA_NFC_STATUS = "nl.tudelft.trustchain.eurotoken.NFC_STATUS"
@@ -136,16 +134,16 @@ class NfcReaderActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
         // first check if supports isodep
         val isoDep = IsoDep.get(tag)
         if (isoDep != null) {
-            //now handled thread handling here, must not run on main thread
+            // now handled thread handling here, must not run on main thread
             // blocking nfc ops on background threads
             // only one worker for interactions --> app needds to stay smooth
-        // its necessary to launch a dispatchers.io thread
+            // its necessary to launch a dispatchers.io thread
             lifecycleScope.launch {
                 val result = withContext(Dispatchers.IO) {
                     commWithTag(isoDep)
                 }
                 // communication result for ui
-                handleCommResult(result) 
+                handleCommResult(result)
             }
         } else {
             Log.w(TAG, "Tag does not support IsoDep communication.")
@@ -153,16 +151,19 @@ class NfcReaderActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
             // Maybe finish with error or just wait for a compatible tag
         }
     }
-    //le is length of data to read
+
+    // le is length of data to read
     private fun createReadBinaryApdu(offset: Int, le: Byte): ByteArray {
         return byteArrayOf(
-            0x00.toByte(), 0xB0.toByte(),
-            (offset shr 8).toByte(), (offset and 0xFF).toByte(),
+            0x00.toByte(),
+            0xB0.toByte(),
+            (offset shr 8).toByte(),
+            (offset and 0xFF).toByte(),
             le
         )
     }
 
-    // communication with tag 
+    // communication with tag
     // reads string data
     private suspend fun commWithTag(isoDep: IsoDep): Pair<String?, NfcError?> {
         // isodep -> |connect | |transceive| |close| are blocking
@@ -182,7 +183,7 @@ class NfcReaderActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
 
             Log.i(TAG, "AID Selected successfully.")
 
-            //NOW read 4-byte header for data 
+            // NOW read 4-byte header for data
             runOnUiThread { updateStatus("App selected. Reading payload size...") }
             val lenHeaderCmd = createReadBinaryApdu(0, LENGTH_HEADER_SIZE.toByte())
             Log.d(TAG, "Reading length header: ${lenHeaderCmd.toHex()}")
@@ -191,8 +192,8 @@ class NfcReaderActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
             // Log.d(TAG, "Sending READ DATA: ${CMD_READ_DATA.toHex()}")
             // val readResult = isoDep.transceive(CMD_READ_DATA)
             // Log.d(TAG, "READ DATA response: ${readResult.toHex()}")
-            
-             if (!checkSuccess(lenHeaderResponse)) {
+
+            if (!checkSuccess(lenHeaderResponse)) {
                 Log.e(TAG, "Failed to read length header. Status: ${lenHeaderResponse.getStatusString()}")
                 return Pair(null, NfcError.READ_FAILED)
             }
@@ -205,28 +206,27 @@ class NfcReaderActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
             val dataSize = ByteBuffer.wrap(lenHeaderBytes).int // not sure if here we need to check for overflow
 
             Log.i(TAG, "Actual data size to read (from header): $dataSize bytes.")
-            
+
             if (dataSize < 0 || dataSize > 1024 * 1024) {
-                 Log.e(TAG, "Invalid total actual data size from header: $dataSize")
-                 return Pair(null, NfcError.READ_FAILED) 
+                Log.e(TAG, "Invalid total actual data size from header: $dataSize")
+                return Pair(null, NfcError.READ_FAILED)
             }
             if (dataSize == 0) {
                 Log.i(TAG, "Actual data size is 0. Returning empty payload.")
                 return Pair("", null) // Successfully read an empty payload
             }
 
-            
             runOnUiThread { updateStatus("Payload size: $dataSize bytes. Reading data...") }
 
-            //correct datas size,,  lets read some data :)
+            // correct datas size,,  lets read some data :)
 
-            //inmem buffer
+            // inmem buffer
             // stream destination of written bytes/ internal byte array to keep track of portions/complete payload
             val concPayload = ByteArrayOutputStream()
 
             // how many bytes we read from hce service?
             var readDataB = 0
-            
+
             // offset HCE buffer -> hedaer+data
             var HCEOffset = LENGTH_HEADER_SIZE
 
@@ -240,15 +240,15 @@ class NfcReaderActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
                     // -2 for status bytes sw1,sw2
                     val statusB = chunkResponse.copyOfRange(chunkResponse.size - 2, chunkResponse.size)
                     if (Arrays.equals(statusB, SW_WRONG_PARAMETERS_P1P2) && readDataB > 0) {
-                        //fail
+                        // fail
                         // Log.e(TAG, "READ data chunk failed. HCE reported Offset out of bounds (6B00) prematurely. Expected $totalActualDataSize, got $dataBytesReadSoFar. HCE Offset=$currentHcePayloadOffset")
                         Log.e(TAG, "READ data chunk failed. HCE reported Offset out of bounds (6B00) prematurely. Expected $dataSize, got $readDataB. HCE Offset=$HCEOffset")
                     } else {
-                        Log.e(TAG, "READ data chunk failed. Status: ${chunkResponse}")
+                        Log.e(TAG, "READ data chunk failed. Status: $chunkResponse")
                     }
                     return Pair(null, NfcError.READ_FAILED)
                 }
-            
+
                 // -2 for status bytes sw1,sw2
                 val chunk2 = chunkResponse.copyOfRange(0, chunkResponse.size - 2)
                 if (chunk2.isEmpty() && readDataB < dataSize) {
@@ -261,20 +261,19 @@ class NfcReaderActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
                 concPayload.write(chunk2)
                 readDataB += chunk2.size
                 HCEOffset += chunk2.size
-                
+
                 Log.d(TAG, "Read $readDataB bytes from HCE service, HCE Offset=$HCEOffset, Total data size: $dataSize, actual data = ${concPayload.size()}/$dataSize")
-                runOnUiThread{updateStatus("Reading data... $readDataB/$dataSize")}
+                runOnUiThread { updateStatus("Reading data... $readDataB/$dataSize") }
             }
-                //not sure if enough is validated?
+            // not sure if enough is validated?
 
             val dataBytes = concPayload.toByteArray()
             val payloadString = String(dataBytes, Charsets.UTF_8)
             Log.i(TAG, "Data read successfully: $payloadString, size=${dataBytes.size}")
             return Pair(payloadString, null)
-
         }
-            
-                //             if (checkSuccess(lenHeaderResponse)) {
+
+        //             if (checkSuccess(lenHeaderResponse)) {
 //                 val payloadBytes = lenHeaderResponse.copyOfRange(0, lenHeaderResponse.size - 2) // no SW1,SW2
 //                 if (payloadBytes.isEmpty()) {
 //                     Log.w(TAG, "No data payload received from HCE service (empty response).")
@@ -307,7 +306,7 @@ class NfcReaderActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
 //                 runOnUiThread { updateStatus("Failed to read data. Status: $statusString") }
 // //                    finishWithError(error)
 //             }
-            
+
         catch (e: TagLostException) {
             Log.e(TAG, "Tag lost during communication.", e)
             return Pair(null, NfcError.TAG_LOST)
@@ -326,43 +325,41 @@ class NfcReaderActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
                 Log.e(TAG, "Error closing IsoDep.", e)
             }
         }
-
     }
 
-    //handle ui finally
+    // handle ui finally
 
     private fun handleCommResult(resultFromCommWithTag: Pair<String?, NfcError?>) {
         val (payloadString, error) = resultFromCommWithTag
 
         binding.progressSpinner.visibility = View.GONE
-        binding.ivNfcResultIcon.visibility = View.VISIBLE 
+        binding.ivNfcResultIcon.visibility = View.VISIBLE
 
         if (error == null && payloadString != null) {
             Log.i(TAG, "Data read successfully (in handleCommResult): $payloadString")
             val confirmationStatus = "Received data: $payloadString"
 
             binding.ivNfcResultIcon.setImageResource(R.drawable.ic_baseline_check_circle_outline_24)
-            binding.ivNfcResultIcon.setColorFilter(getColor(R.color.green)) 
+            binding.ivNfcResultIcon.setColorFilter(getColor(R.color.green))
 
-            updateStatus("Data received.") 
-            updateResult(confirmationStatus) 
+            updateStatus("Data received.")
+            updateResult(confirmationStatus)
 
             binding.btnConfirm.visibility = View.VISIBLE
-            binding.btnConfirm.text = "Confirm" 
+            binding.btnConfirm.text = "Confirm"
             binding.btnConfirm.setOnClickListener {
                 finishWithSuccess(payloadString)
             }
         } else {
             val resolvedError = error ?: NfcError.UNKNOWN_ERROR
             val statusMessageForUI = "Failed to read data. Error: ${resolvedError.name}"
-            
+
             Log.e(TAG, "NFC operation failed (in handleCommResult). Error: ${resolvedError.name}")
 
-            binding.ivNfcResultIcon.setColorFilter(getColor(R.color.red)) 
-            
-            updateStatus(statusMessageForUI) 
-            updateResult("NFC Error. Please try again.")
+            binding.ivNfcResultIcon.setColorFilter(getColor(R.color.red))
 
+            updateStatus(statusMessageForUI)
+            updateResult("NFC Error. Please try again.")
 
             binding.btnConfirm.visibility = View.VISIBLE
             binding.btnConfirm.text = "Close"
@@ -372,8 +369,6 @@ class NfcReaderActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
         }
     }
 
-
-    
     // helpers
 
     private fun finishWithSuccess(data: String) {

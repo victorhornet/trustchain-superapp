@@ -22,7 +22,8 @@ class EuroTokenHCEService : HostApduService() {
         private val SW_INS_NOT_SUPPORTED = byteArrayOf(0x6D.toByte(), 0x00.toByte())
         private val SW_CLA_NOT_SUPPORTED = byteArrayOf(0x6E.toByte(), 0x00.toByte())
         private val SW_WRONG_LENGTH = byteArrayOf(0x67.toByte(), 0x00.toByte()) // for chunking
-        private val SW_WRONG_PARAMETERS_P1P2 = byteArrayOf(0x6B.toByte(), 0x00.toByte()) 
+        private val SW_WRONG_PARAMETERS_P1P2 = byteArrayOf(0x6B.toByte(), 0x00.toByte())
+
         // AID ->HCE service only activated when read specific AID
         const val AID_EUROTOKEN = "F222222222"
 
@@ -49,7 +50,6 @@ class EuroTokenHCEService : HostApduService() {
         @Volatile
         private var currentPayloadBytes: ByteArray? = null
 
-        
         fun setPayload(payloadWithHeader: ByteArray?) {
             synchronized(this) {
                 currentPayloadBytes = payloadWithHeader
@@ -129,15 +129,15 @@ class EuroTokenHCEService : HostApduService() {
                 if (le == 0) {
                     // ISO7816-4 state that Le=0 means 256 for short APDUs
                     // thus reader expects up to 256 bytes
-                    le = 256 
+                    le = 256
                 }
                 // (header + actual data),  check if offset  isnt out of bounds
                 if (offset < 0 || offset > payload.size) {
                     Log.e(TAG, "READ BINARY: Offset $offset out of bounds for HCE payload size ${payload.size}")
-                    return SW_WRONG_PARAMETERS_P1P2 
+                    return SW_WRONG_PARAMETERS_P1P2
                 }
 
-                //bytes to read by reader && actual bytes to send to reader
+                // bytes to read by reader && actual bytes to send to reader
                 val bytesToRead = min(le, MAX_CHUNK)
                 val actualBytes = min(bytesToRead, payload.size - offset)
 
@@ -149,7 +149,6 @@ class EuroTokenHCEService : HostApduService() {
                 val chunk = payload.copyOfRange(offset, offset + actualBytes)
                 Log.d(TAG, "READ BINARY: HCE_payload_offset=$offset, Le_from_reader=$le (card_will_send_max $bytesToRead), sending $actualBytes bytes.")
                 return chunk + SW_OK
-
             }
         }
         return SW_INS_NOT_SUPPORTED

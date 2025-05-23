@@ -63,8 +63,8 @@ class RequestMoneyFragment : EurotokenBaseFragment(R.layout.fragment_request_mon
 
         // used to test chunking, more than >250 bytes
         // should log multiple binary reads now... &  work
-        
-        val padding = "B".repeat(300) 
+
+        val padding = "B".repeat(300)
         val jsonData = JSONObject().apply {
             put("amount", amount as Any)
             put("public_key", myPublicKey as Any)
@@ -92,7 +92,7 @@ class RequestMoneyFragment : EurotokenBaseFragment(R.layout.fragment_request_mon
             binding.qr.visibility = View.GONE
             binding.btnNfcRequest.visibility = View.GONE
 
-            //4byts for length
+            // 4byts for length
             val headerByes = ByteBuffer.allocate(4).putInt(jsonData.length).array()
             val hcePayload = headerByes + jsonData.toByteArray(Charsets.UTF_8)
             EuroTokenHCEService.setPayload(hcePayload)

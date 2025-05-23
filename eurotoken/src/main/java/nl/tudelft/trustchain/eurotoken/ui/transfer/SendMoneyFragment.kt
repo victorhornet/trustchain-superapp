@@ -276,7 +276,7 @@ class SendMoneyFragment : EurotokenBaseFragment(R.layout.fragment_send_money) {
                 val payloadBytes = jsonData.toByteArray(Charsets.UTF_8)
                 val payloadLen = payloadBytes.size
 
-                //4byts for length
+                // 4byts for length
                 val headerByes = ByteBuffer.allocate(4).putInt(payloadLen).array()
                 val hcePayload = headerByes + payloadBytes
                 EuroTokenHCEService.setPayload(hcePayload)
