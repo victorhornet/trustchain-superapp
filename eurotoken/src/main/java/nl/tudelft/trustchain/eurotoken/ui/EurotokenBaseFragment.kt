@@ -26,6 +26,7 @@ import nl.tudelft.trustchain.common.ui.BaseFragment
 import nl.tudelft.trustchain.eurotoken.EuroTokenMainActivity
 import nl.tudelft.trustchain.eurotoken.R
 import nl.tudelft.trustchain.eurotoken.db.TrustStore
+import nl.tudelft.trustchain.eurotoken.db.VouchStore
 
 open class EurotokenBaseFragment(contentLayoutId: Int = 0) : BaseFragment(contentLayoutId) {
     protected val logger = KotlinLogging.logger {}
@@ -35,6 +36,13 @@ open class EurotokenBaseFragment(contentLayoutId: Int = 0) : BaseFragment(conten
      */
     protected val trustStore by lazy {
         TrustStore.getInstance(requireContext())
+    }
+
+    /**
+     * The [VouchStore] to retrieve and store vouch information.
+     */
+    protected val vouchStore by lazy {
+        VouchStore.getInstance(requireContext())
     }
 
     protected val transactionRepository by lazy {
@@ -69,6 +77,25 @@ open class EurotokenBaseFragment(contentLayoutId: Int = 0) : BaseFragment(conten
         @Suppress("DEPRECATION")
         setHasOptionsMenu(true)
         trustStore.createContactStateTable()
+        vouchStore.createVouchTable()
+
+        // Inject dummy trust scores for UI testing if DB is empty
+        if (trustStore.getAllScores().isEmpty()) {
+            // Example dummy public keys (32 bytes each, random values)
+            val dummyKeys = listOf(
+                ByteArray(32) { 0x01 },
+                ByteArray(32) { 0x02 },
+                ByteArray(32) { 0x03 }
+            )
+            val dummyScores = listOf(80, 55, 30)
+            for ((key, score) in dummyKeys.zip(dummyScores)) {
+                trustStore.incrementTrust(key)
+                // Directly update to desired score
+                val method = trustStore.javaClass.getDeclaredMethod("updateScoreDirectly", ByteArray::class.java, Int::class.java)
+                method.isAccessible = true
+                method.invoke(trustStore, key, score)
+            }
+        }
 
         lifecycleScope.launchWhenResumed {
         }
@@ -194,6 +221,11 @@ open class EurotokenBaseFragment(contentLayoutId: Int = 0) : BaseFragment(conten
 
             R.id.trustScoresMenuItem -> {
                 findNavController().navigate(R.id.trustScoresFragment)
+                true
+            }
+
+            R.id.vouchManagementMenuItem -> {
+                findNavController().navigate(R.id.vouchManagementFragment)
                 true
             }
 

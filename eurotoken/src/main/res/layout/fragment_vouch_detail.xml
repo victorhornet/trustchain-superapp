@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <TextView
+        android:id="@+id/txtPubKey"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Public Key"
+        android:textStyle="bold"
+        android:paddingBottom="8dp"/>
+
+    <TextView
+        android:id="@+id/txtTrustScore"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Trust Score"
+        android:paddingBottom="8dp"/>
+
+    <TextView
+        android:id="@+id/txtRiskFactor"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Risk: (coming soon)"
+        android:paddingBottom="16dp"/>
+
+    <EditText
+        android:id="@+id/editVouchAmount"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Vouch amount (€)"
+        android:inputType="numberDecimal"
+        android:paddingBottom="16dp"/>
+
+    <Button
+        android:id="@+id/btnPickVouchUntil"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Pick vouch expiration date-time"
+        android:paddingBottom="8dp"/>
+
+    <TextView
+        android:id="@+id/txtVouchUntil"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="No expiration selected"
+        android:paddingBottom="16dp"/>
+
+    <Button
+        android:id="@+id/btnUpdate"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Update"/>
+
+</LinearLayout> 

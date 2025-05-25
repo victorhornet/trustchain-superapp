@@ -132,4 +132,22 @@
             app:destination="@id/requestMoneyFragment" />
     </dialog>
 
+    <fragment
+        android:id="@+id/vouchManagementFragment"
+        android:name="nl.tudelft.trustchain.eurotoken.ui.vouch.VouchManagementFragment"
+        android:label="Vouch Management"
+        tools:layout="@layout/fragment_vouch_management">
+        <action
+            android:id="@+id/action_vouchManagementFragment_to_vouchDetailFragment"
+            app:destination="@id/vouchDetailFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/vouchDetailFragment"
+        android:name="nl.tudelft.trustchain.eurotoken.ui.vouch.VouchDetailFragment"
+        android:label="Vouch Detail"
+        tools:layout="@layout/fragment_vouch_detail">
+        <argument android:name="pubKey" app:argType="string" />
+    </fragment>
+
 </navigation>
