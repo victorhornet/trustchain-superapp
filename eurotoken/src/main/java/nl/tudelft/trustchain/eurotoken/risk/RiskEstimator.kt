@@ -19,7 +19,6 @@ class RiskEstimator(
         amount: Long,
         payerBlock: TrustChainBlock,
     ): Double {
-        if (amount <= 0) return 1.0
         // Normalize the payer trust
         val payerBalance = transactionRepository.getMyVerifiedBalance()
         val payerPubKeyBytes: ByteArray = payerBlock.publicKey

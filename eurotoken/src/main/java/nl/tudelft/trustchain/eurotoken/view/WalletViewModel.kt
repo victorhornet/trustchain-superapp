@@ -5,6 +5,7 @@ import nl.tudelft.ipv8.keyvault.PublicKey
 import nl.tudelft.ipv8.keyvault.defaultCryptoProvider
 import nl.tudelft.trustchain.common.eurotoken.TransactionRepository
 import kotlinx.coroutines.launch
+import java.util.Date
 
 class WalletViewModel(
     private val transactionRepository: TransactionRepository
@@ -12,12 +13,18 @@ class WalletViewModel(
     private val _balance = MutableLiveData<Long>()
     val balance: LiveData<Long> get() = _balance
 
+    private val _lockedBalance = MutableLiveData<Long>()
+    val lockedBalance: LiveData<Long> get() = _lockedBalance
+
+    private val _spendableBalance = MutableLiveData<Long>()
+    val spendableBalance: LiveData<Long> get() = _spendableBalance
+
     // TODO can potentailly be deleted
     // might be handy for later transactions
     // now solely for test
     init {
         // load initial balance when ViewModel is created
-        refreshBalance()
+        refreshBalances()
     }
 
     fun getPublicKey(): PublicKey {
@@ -26,21 +33,46 @@ class WalletViewModel(
         )
     }
 
-    fun refreshBalance() {
-        _balance.value = transactionRepository.getMyVerifiedBalance()
+    fun refreshBalances() {
+        viewModelScope.launch {
+            _balance.value = transactionRepository.getMyBalance()
+            _lockedBalance.value = transactionRepository.getMyLockedBalance()
+            _spendableBalance.value = transactionRepository.getMySpendableBalance()
+        }
+    }
+
+    suspend fun createBond(amount: Long, expiresAt: Date, purpose: String): Long? {
+        val bondId = transactionRepository.createBond(amount, expiresAt, purpose)
+        if (bondId != null) {
+            refreshBalances()
+        }
+        return bondId
+    }
+
+    suspend fun releaseBond(bondId: Long): Boolean {
+        val success = transactionRepository.releaseBond(bondId)
+        if (success) {
+            refreshBalances()
+        }
+        return success
     }
 
     fun sendAmount(amount: Int, recipientPK: PublicKey, onComplete: (Boolean) -> Unit) {
         viewModelScope.launch {
             try {
-                // has to propgate--> might take longer..
+                val spendableBalance = transactionRepository.getMySpendableBalance()
+                if (amount.toLong() > spendableBalance) {
+                    onComplete(false)
+                    return@launch
+                }
+
                 val success = transactionRepository.sendTransferProposal(
                     recipientPK.keyToBin(),
                     amount.toLong()
                 )
 
                 if (success) {
-                    refreshBalance()
+                    refreshBalances()
                 }
 
                 onComplete(success)
@@ -55,13 +87,18 @@ class WalletViewModel(
     // noa callback
     suspend fun sendAmount(amount: Int, recipientPK: PublicKey): Boolean {
         return try {
+            val spendableBalance = transactionRepository.getMySpendableBalance()
+            if (amount.toLong() > spendableBalance) {
+                return false
+            }
+
             val result = transactionRepository.sendTransferProposal(
                 recipientPK.keyToBin(),
                 amount.toLong()
             )
 
             if (result) {
-                refreshBalance()
+                refreshBalances()
             }
 
             result
