@@ -1,0 +1,48 @@
+createVouchTable:
+CREATE TABLE IF NOT EXISTS vouches (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    voucher_public_key BLOB NOT NULL,
+    vouchee_public_key BLOB NOT NULL,
+    vouch_amount REAL NOT NULL,
+    vouch_until INTEGER,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    UNIQUE(voucher_public_key, vouchee_public_key)
+);
+
+-- Get all vouches made by a specific user (voucher)
+getVouchesByVoucher:
+SELECT * FROM vouches WHERE voucher_public_key = ?;
+
+-- Get all vouches received by a specific user (vouchee)
+getVouchesByVouchee:
+SELECT * FROM vouches WHERE vouchee_public_key = ?;
+
+-- Get a specific vouch between two users
+getVouch:
+SELECT * FROM vouches WHERE voucher_public_key = ? AND vouchee_public_key = ?;
+
+-- Insert or update a vouch
+insertOrUpdateVouch:
+INSERT OR REPLACE INTO vouches (voucher_public_key, vouchee_public_key, vouch_amount, vouch_until, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?);
+
+-- Delete a vouch
+deleteVouch:
+DELETE FROM vouches WHERE voucher_public_key = ? AND vouchee_public_key = ?;
+
+-- Get all vouches (for debugging/admin purposes)
+getAllVouches:
+SELECT * FROM vouches;
+
+-- Clean up expired vouches
+deleteExpiredVouches:
+DELETE FROM vouches WHERE vouch_until IS NOT NULL AND vouch_until < ?;
+
+-- Update vouch amount only
+updateVouchAmount:
+UPDATE vouches SET vouch_amount = ?, updated_at = ? WHERE voucher_public_key = ? AND vouchee_public_key = ?;
+
+-- Update vouch expiration only
+updateVouchUntil:
+UPDATE vouches SET vouch_until = ?, updated_at = ? WHERE voucher_public_key = ? AND vouchee_public_key = ?; 
