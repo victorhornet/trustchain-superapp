@@ -30,6 +30,7 @@ import java.util.*
 class TransactionRepository(
     val trustChainCommunity: TrustChainCommunity,
     val gatewayStore: GatewayStore,
+    private val bondStore: BondStore
 ) {
     private val scope = CoroutineScope(Dispatchers.IO)
 
@@ -1215,6 +1216,182 @@ class TransactionRepository(
         )
     }
 
+    private fun addBondListeners() {
+        trustChainCommunity.registerTransactionValidator(
+            BLOCK_TYPE_BOND,
+            object : TransactionValidator {
+                override fun validate(
+                    block: TrustChainBlock,
+                    database: TrustChainStore
+                ): ValidationResult {
+                    if (!block.transaction.containsKey(KEY_AMOUNT) ||
+                        !block.transaction.containsKey(KEY_BALANCE) ||
+                        !block.transaction.containsKey("expiresAt") ||
+                        !block.transaction.containsKey("purpose") ||
+                        !block.transaction.containsKey("status")
+                    ) {
+                        return ValidationResult.Invalid(listOf("Missing required fields"))
+                    }
+
+                    val amount = (block.transaction[KEY_AMOUNT] as BigInteger).toLong()
+                    val balance = block.transaction[KEY_BALANCE] as Long
+                    val status = block.transaction["status"] as String
+
+                    if (status != BondStatus.ACTIVE.name) {
+                        return ValidationResult.Invalid(listOf("Invalid bond status"))
+                    }
+
+                    // Verify the balance is correct
+                    val balanceBefore =
+                        getBalanceForBlock(
+                            database.getBlockWithHash(block.previousHash),
+                            database
+                        ) ?: return ValidationResult.PartialPrevious
+
+                    if (balance != balanceBefore - amount) {
+                        return ValidationResult.Invalid(listOf("Invalid balance"))
+                    }
+
+                    return ValidationResult.Valid
+                }
+            }
+        )
+
+        trustChainCommunity.registerBlockSigner(
+            BLOCK_TYPE_BOND,
+            object : BlockSigner {
+                override fun onSignatureRequest(block: TrustChainBlock) {
+                    trustChainCommunity.sendBlock(
+                        trustChainCommunity.createAgreementBlock(
+                            block,
+                            block.transaction
+                        )
+                    )
+                }
+            }
+        )
+
+        trustChainCommunity.addListener(
+            BLOCK_TYPE_BOND,
+            object : BlockListener {
+                override fun onBlockReceived(block: TrustChainBlock) {
+                    ensureCheckpointLinks(block, trustChainCommunity.database)
+                    if (block.isAgreement && block.publicKey.contentEquals(trustChainCommunity.myPeer.publicKey.keyToBin())) {
+                        verifyBalance()
+                    }
+                }
+            }
+        )
+    }
+
+    private fun addBondReleaseListeners() {
+        trustChainCommunity.registerTransactionValidator(
+            BLOCK_TYPE_BOND_RELEASE,
+            object : TransactionValidator {
+                override fun validate(
+                    block: TrustChainBlock,
+                    database: TrustChainStore
+                ): ValidationResult {
+                    if (!block.transaction.containsKey(KEY_AMOUNT) ||
+                        !block.transaction.containsKey(KEY_BALANCE) ||
+                        !block.transaction.containsKey("expiresAt") ||
+                        !block.transaction.containsKey("purpose") ||
+                        !block.transaction.containsKey("status")
+                    ) {
+                        return ValidationResult.Invalid(listOf("Missing required fields"))
+                    }
+
+                    val status = block.transaction["status"] as String
+                    if (status != BondStatus.RELEASED.name) {
+                        return ValidationResult.Invalid(listOf("Invalid bond status"))
+                    }
+
+                    return ValidationResult.Valid
+                }
+            }
+        )
+
+        trustChainCommunity.registerBlockSigner(
+            BLOCK_TYPE_BOND_RELEASE,
+            object : BlockSigner {
+                override fun onSignatureRequest(block: TrustChainBlock) {
+                    trustChainCommunity.sendBlock(
+                        trustChainCommunity.createAgreementBlock(
+                            block,
+                            block.transaction
+                        )
+                    )
+                }
+            }
+        )
+
+        trustChainCommunity.addListener(
+            BLOCK_TYPE_BOND_RELEASE,
+            object : BlockListener {
+                override fun onBlockReceived(block: TrustChainBlock) {
+                    ensureCheckpointLinks(block, trustChainCommunity.database)
+                    if (block.isAgreement && block.publicKey.contentEquals(trustChainCommunity.myPeer.publicKey.keyToBin())) {
+                        verifyBalance()
+                    }
+                }
+            }
+        )
+    }
+
+    private fun addBondForfeitListeners() {
+        trustChainCommunity.registerTransactionValidator(
+            BLOCK_TYPE_BOND_FORFEIT,
+            object : TransactionValidator {
+                override fun validate(
+                    block: TrustChainBlock,
+                    database: TrustChainStore
+                ): ValidationResult {
+                    if (!block.transaction.containsKey(KEY_AMOUNT) ||
+                        !block.transaction.containsKey(KEY_BALANCE) ||
+                        !block.transaction.containsKey("expiresAt") ||
+                        !block.transaction.containsKey("purpose") ||
+                        !block.transaction.containsKey("status")
+                    ) {
+                        return ValidationResult.Invalid(listOf("Missing required fields"))
+                    }
+
+                    val status = block.transaction["status"] as String
+                    if (status != BondStatus.FORFEITED.name) {
+                        return ValidationResult.Invalid(listOf("Invalid bond status"))
+                    }
+
+                    return ValidationResult.Valid
+                }
+            }
+        )
+
+        trustChainCommunity.registerBlockSigner(
+            BLOCK_TYPE_BOND_FORFEIT,
+            object : BlockSigner {
+                override fun onSignatureRequest(block: TrustChainBlock) {
+                    trustChainCommunity.sendBlock(
+                        trustChainCommunity.createAgreementBlock(
+                            block,
+                            block.transaction
+                        )
+                    )
+                }
+            }
+        )
+
+        trustChainCommunity.addListener(
+            BLOCK_TYPE_BOND_FORFEIT,
+            object : BlockListener {
+                override fun onBlockReceived(block: TrustChainBlock) {
+                    ensureCheckpointLinks(block, trustChainCommunity.database)
+                    if (block.isAgreement && block.publicKey.contentEquals(trustChainCommunity.myPeer.publicKey.keyToBin())) {
+                        verifyBalance()
+                    }
+                }
+            }
+        )
+    }
+
     fun initTrustChainCommunity() {
         addTransferListeners()
         addJoinListeners()
@@ -1223,6 +1400,141 @@ class TransactionRepository(
         addCheckpointListeners()
         addRollbackListeners()
         addTradeListeners()
+        addBondListeners()
+        addBondReleaseListeners()
+        addBondForfeitListeners()
+    }
+
+    fun getMyLockedBalance(): Long {
+        val myPublicKey = trustChainCommunity.myPeer.publicKey.keyToBin()
+        return bondStore.getTotalLockedAmount(myPublicKey)
+    }
+
+    fun getMySpendableBalance(): Long = getMyBalance() - getMyLockedBalance()
+
+    fun createBond(
+        amount: Long,
+        expiresAt: Date,
+        purpose: String
+    ): String? {
+        if (getMySpendableBalance() < amount) {
+            return null
+        }
+
+        val bond =
+            Bond(
+                amount = amount,
+                publicKeyLender = trustChainCommunity.myPeer.publicKey.keyToBin(),
+                publicKeyReceiver = trustChainCommunity.myPeer.publicKey.keyToBin(), // Self-bond for now
+                createdAt = Date(),
+                expiredAt = expiresAt,
+                transactionId = UUID.randomUUID().toString(),
+                status = BondStatus.ACTIVE
+            )
+
+        // Create TrustChain block for the bond
+        val transaction =
+            mapOf(
+                KEY_AMOUNT to BigInteger.valueOf(amount),
+                KEY_BALANCE to (BigInteger.valueOf(getMyBalance() - amount).toLong()),
+                "expiresAt" to expiresAt.time,
+                "purpose" to purpose,
+                "status" to BondStatus.ACTIVE.name,
+                "bondId" to bond.id
+            )
+
+        val block =
+            trustChainCommunity.createProposalBlock(
+                BLOCK_TYPE_BOND,
+                transaction,
+                trustChainCommunity.myPeer.publicKey.keyToBin()
+            )
+
+        if (block != null) {
+            trustChainCommunity.sendBlock(block, trustChainCommunity.myPeer)
+            bondStore.setBond(bond)
+            return bond.id
+        }
+        return null
+    }
+
+    fun releaseBond(bondId: String): Boolean {
+        val bond = bondStore.getBond(bondId) ?: return false
+        if (bond.status != BondStatus.ACTIVE) return false
+
+        val transaction =
+            mapOf(
+                KEY_AMOUNT to BigInteger.valueOf(bond.amount),
+                KEY_BALANCE to (BigInteger.valueOf(getMyBalance()).toLong()),
+                "expiresAt" to bond.expiredAt.time,
+                "purpose" to "Bond release",
+                "status" to BondStatus.RELEASED.name,
+                "bondId" to bond.id
+            )
+
+        val block =
+            trustChainCommunity.createProposalBlock(
+                BLOCK_TYPE_BOND_RELEASE,
+                transaction,
+                trustChainCommunity.myPeer.publicKey.keyToBin()
+            )
+
+        if (block != null) {
+            trustChainCommunity.sendBlock(block, trustChainCommunity.myPeer)
+            bondStore.updateBondStatus(bondId, BondStatus.RELEASED)
+            return true
+        }
+        return false
+    }
+
+    fun forfeitBond(bondId: String): Boolean {
+        val bond = bondStore.getBond(bondId) ?: return false
+        if (bond.status != BondStatus.ACTIVE) return false
+
+        val transaction =
+            mapOf(
+                KEY_AMOUNT to BigInteger.valueOf(bond.amount),
+                KEY_BALANCE to (BigInteger.valueOf(getMyBalance()).toLong()),
+                "expiresAt" to bond.expiredAt.time,
+                "purpose" to "Bond forfeiture",
+                "status" to BondStatus.FORFEITED.name,
+                "bondId" to bond.id
+            )
+
+        val block =
+            trustChainCommunity.createProposalBlock(
+                BLOCK_TYPE_BOND_FORFEIT,
+                transaction,
+                trustChainCommunity.myPeer.publicKey.keyToBin()
+            )
+
+        if (block != null) {
+            trustChainCommunity.sendBlock(block, trustChainCommunity.myPeer)
+            bondStore.updateBondStatus(bondId, BondStatus.FORFEITED)
+            return true
+        }
+        return false
+    }
+
+    fun checkForDoubleSpends(): List<String> {
+        val myPublicKey = trustChainCommunity.myPeer.publicKey.keyToBin()
+        val activeBonds = bondStore.getActiveBonds(myPublicKey)
+        val doubleSpentBonds = mutableListOf<String>()
+
+        for (bond in activeBonds) {
+            val receiverBlocks =
+                trustChainCommunity.database
+                    .getBlocks(bond.publicKeyReceiver)
+                    .filter { it.type == BLOCK_TYPE_TRANSFER && it.isProposal }
+                    .filter { it.timestamp > bond.createdAt.time }
+
+            if (receiverBlocks.isNotEmpty()) {
+                doubleSpentBonds.add(bond.id)
+                forfeitBond(bond.id)
+            }
+        }
+
+        return doubleSpentBonds
     }
 
     companion object {
@@ -1247,6 +1559,9 @@ class TransactionRepository(
         const val BLOCK_TYPE_ROLLBACK = "eurotoken_rollback"
         const val BLOCK_TYPE_JOIN = "eurotoken_join"
         const val BLOCK_TYPE_TRADE = "eurotoken_trade"
+        const val BLOCK_TYPE_BOND = "eurotoken_bond"
+        const val BLOCK_TYPE_BOND_RELEASE = "eurotoken_bond_release"
+        const val BLOCK_TYPE_BOND_FORFEIT = "eurotoken_bond_forfeit"
 
         @Suppress("ktlint:standard:property-naming")
         val EUROTOKEN_TYPES =
@@ -1257,7 +1572,10 @@ class TransactionRepository(
                 BLOCK_TYPE_CHECKPOINT,
                 BLOCK_TYPE_ROLLBACK,
                 BLOCK_TYPE_JOIN,
-                BLOCK_TYPE_TRADE
+                BLOCK_TYPE_TRADE,
+                BLOCK_TYPE_BOND,
+                BLOCK_TYPE_BOND_RELEASE,
+                BLOCK_TYPE_BOND_FORFEIT
             )
 
         const val KEY_AMOUNT = "amount"

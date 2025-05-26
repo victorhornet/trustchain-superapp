@@ -1,0 +1,36 @@
+CREATE TABLE IF NOT EXISTS trust_scores (
+    public_key BLOB NOT NULL PRIMARY KEY,
+    score INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS index_trust_scores_score ON trust_scores(score);
+
+insertOrUpdateScore:
+INSERT OR REPLACE INTO trust_scores (
+    public_key,
+    score,
+    updated_at
+) VALUES (?, ?, ?);
+
+getScore:
+SELECT score
+FROM trust_scores
+WHERE public_key = ?;
+
+getAllScores:
+SELECT *
+FROM trust_scores;
+
+updateScore:
+UPDATE trust_scores
+SET score = ?,
+    updated_at = ?
+WHERE public_key = ?;
+
+createTrustScoreTable:
+CREATE TABLE IF NOT EXISTS trust_scores (
+    public_key BLOB NOT NULL PRIMARY KEY,
+    score INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+); 

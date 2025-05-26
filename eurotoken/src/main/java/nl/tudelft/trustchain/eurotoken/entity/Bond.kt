@@ -11,7 +11,8 @@ data class Bond(
     val createdAt: Date,
     val expiredAt: Date,
     val transactionId: String,
-    val status: BondStatus = BondStatus.ACTIVE
+    val status: BondStatus = BondStatus.ACTIVE,
+    val purpose: String
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -27,6 +28,7 @@ data class Bond(
         if (expiredAt != other.expiredAt) return false
         if (transactionId != other.transactionId) return false
         if (status != other.status) return false
+        if (purpose != other.purpose) return false
 
         return true
     }
@@ -40,6 +42,7 @@ data class Bond(
         result = 31 * result + expiredAt.hashCode()
         result = 31 * result + transactionId.hashCode()
         result = 31 * result + status.hashCode()
+        result = 31 * result + purpose.hashCode()
         return result
     }
 }

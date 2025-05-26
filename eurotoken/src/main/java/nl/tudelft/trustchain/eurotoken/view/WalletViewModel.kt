@@ -6,9 +6,12 @@ import nl.tudelft.ipv8.keyvault.defaultCryptoProvider
 import nl.tudelft.trustchain.common.eurotoken.TransactionRepository
 import kotlinx.coroutines.launch
 import java.util.Date
+import java.math.BigInteger
 
 class WalletViewModel(
-    private val transactionRepository: TransactionRepository
+    private val transactionRepository: TransactionRepository,
+    private val trustChainCommunity: TrustChainCommunity,
+    private val bondStore: BondStore
 ) : ViewModel() {
     private val _balance = MutableLiveData<Long>()
     val balance: LiveData<Long> get() = _balance
@@ -19,12 +22,16 @@ class WalletViewModel(
     private val _spendableBalance = MutableLiveData<Long>()
     val spendableBalance: LiveData<Long> get() = _spendableBalance
 
+    private val _activeBonds = MutableLiveData<List<Bond>>()
+    val activeBonds: LiveData<List<Bond>> = _activeBonds
+
     // TODO can potentailly be deleted
     // might be handy for later transactions
     // now solely for test
     init {
         // load initial balance when ViewModel is created
         refreshBalances()
+        refreshActiveBonds()
     }
 
     fun getPublicKey(): PublicKey {
@@ -41,20 +48,48 @@ class WalletViewModel(
         }
     }
 
-    suspend fun createBond(amount: Long, expiresAt: Date, purpose: String): Long? {
+    private fun refreshActiveBonds() {
+        viewModelScope.launch {
+            val myPublicKey = trustChainCommunity.myPeer.publicKey.keyToBin()
+            val bonds = bondStore.getActiveBonds(myPublicKey)
+            _activeBonds.postValue(bonds)
+        }
+    }
+
+    fun createBond(amount: Long, expiresAt: Date, purpose: String): String? {
         val bondId = transactionRepository.createBond(amount, expiresAt, purpose)
         if (bondId != null) {
             refreshBalances()
+            refreshActiveBonds()
         }
         return bondId
     }
 
-    suspend fun releaseBond(bondId: Long): Boolean {
+    fun releaseBond(bondId: String): Boolean {
         val success = transactionRepository.releaseBond(bondId)
         if (success) {
             refreshBalances()
+            refreshActiveBonds()
         }
         return success
+    }
+
+    fun forfeitBond(bondId: String): Boolean {
+        val success = transactionRepository.forfeitBond(bondId)
+        if (success) {
+            refreshBalances()
+            refreshActiveBonds()
+        }
+        return success
+    }
+
+    fun checkForDoubleSpends(): List<String> {
+        val doubleSpentBonds = transactionRepository.checkForDoubleSpends()
+        if (doubleSpentBonds.isNotEmpty()) {
+            refreshBalances()
+            refreshActiveBonds()
+        }
+        return doubleSpentBonds
     }
 
     fun sendAmount(amount: Int, recipientPK: PublicKey, onComplete: (Boolean) -> Unit) {

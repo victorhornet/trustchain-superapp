@@ -6,5 +6,6 @@ package nl.tudelft.trustchain.eurotoken.entity
 data class VouchEntry(
     val pubKey: ByteArray,
     var vouchAmount: Double,
-    var vouchUntil: Long? = null // Expiration timestamp (ms since epoch)
-) 
+    // Expiration timestamp (ms since epoch)
+    var vouchUntil: Long? = null
+)
