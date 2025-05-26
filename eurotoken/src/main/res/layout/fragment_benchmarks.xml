@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="16dp">
+
+        <TextView
+            android:id="@+id/txtBenchmarksTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Performance Benchmarks"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:layout_marginBottom="32dp"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <TextView
+            android:id="@+id/lblTransactionBenchmarks"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Transactions:"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginTop="16dp"
+            app:layout_constraintTop_toBottomOf="@id/txtBenchmarksTitle"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <TextView
+            android:id="@+id/lblTotalTransactions"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Total Count:"
+            android:textSize="16sp"
+            android:layout_marginTop="16dp"
+            app:layout_constraintTop_toBottomOf="@id/lblTransactionBenchmarks"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/txtTotalTransactions" />
+
+        <TextView
+            android:id="@+id/txtTotalTransactions"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="--"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:gravity="end"
+            app:layout_constraintTop_toTopOf="@id/lblTotalTransactions"
+            app:layout_constraintStart_toEndOf="@id/lblTotalTransactions"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <TextView
+            android:id="@+id/lblAverageTransactionThroughput"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Average Time:"
+            android:textSize="16sp"
+            android:layout_marginTop="12dp"
+            app:layout_constraintTop_toBottomOf="@id/lblTotalTransactions"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/txtAverageTransactionThroughput" />
+
+        <TextView
+            android:id="@+id/txtAverageTransactionThroughput"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="-- s"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:gravity="end"
+            app:layout_constraintTop_toTopOf="@id/lblAverageTransactionThroughput"
+            app:layout_constraintStart_toEndOf="@id/lblAverageTransactionThroughput"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <TextView
+            android:id="@+id/lblMaxTransactionThroughput"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Max Time:"
+            android:textSize="16sp"
+            android:layout_marginTop="12dp"
+            app:layout_constraintTop_toBottomOf="@id/lblAverageTransactionThroughput"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/txtMaxTransactionThroughput" />
+
+        <TextView
+            android:id="@+id/txtMaxTransactionThroughput"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="-- s"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:gravity="end"
+            app:layout_constraintTop_toTopOf="@id/lblMaxTransactionThroughput"
+            app:layout_constraintStart_toEndOf="@id/lblMaxTransactionThroughput"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <TextView
+            android:id="@+id/lblTransactionErrorRate"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Error Rate:"
+            android:textSize="16sp"
+            android:layout_marginTop="12dp"
+            app:layout_constraintTop_toBottomOf="@id/lblMaxTransactionThroughput"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/txtTransactionErrorRate" />
+
+        <TextView
+            android:id="@+id/txtTransactionErrorRate"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="--%"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:gravity="end"
+            app:layout_constraintTop_toTopOf="@id/lblTransactionErrorRate"
+            app:layout_constraintStart_toEndOf="@id/lblTransactionErrorRate"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <View
+            android:id="@+id/divider1"
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:background="?android:attr/listDivider"
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="16dp"
+            app:layout_constraintTop_toBottomOf="@id/lblTransactionErrorRate"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <TextView
+            android:id="@+id/lblTransferBenchmarks"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Transfers:"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginTop="16dp"
+            app:layout_constraintTop_toBottomOf="@id/divider1"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <TextView
+            android:id="@+id/lblTotalTransfers"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Total Count:"
+            android:textSize="16sp"
+            android:layout_marginTop="16dp"
+            app:layout_constraintTop_toBottomOf="@id/lblTransferBenchmarks"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/txtTotalTransfers" />
+
+        <TextView
+            android:id="@+id/txtTotalTransfers"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="--"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:gravity="end"
+            app:layout_constraintTop_toTopOf="@id/lblTotalTransfers"
+            app:layout_constraintStart_toEndOf="@id/lblTotalTransfers"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <TextView
+            android:id="@+id/lblAverageTransferThroughput"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Average Throughput:"
+            android:textSize="16sp"
+            android:layout_marginTop="12dp"
+            app:layout_constraintTop_toBottomOf="@id/lblTotalTransfers"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/txtAverageTransferThroughput" />
+
+        <TextView
+            android:id="@+id/txtAverageTransferThroughput"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="-- kbps"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:gravity="end"
+            app:layout_constraintTop_toTopOf="@id/lblAverageTransferThroughput"
+            app:layout_constraintStart_toEndOf="@id/lblAverageTransferThroughput"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <TextView
+            android:id="@+id/lblMaxTransferThroughput"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Max Throughput:"
+            android:textSize="16sp"
+            android:layout_marginTop="12dp"
+            app:layout_constraintTop_toBottomOf="@id/lblAverageTransferThroughput"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/txtMaxTransferThroughput" />
+
+        <TextView
+            android:id="@+id/txtMaxTransferThroughput"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="-- kbps"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:gravity="end"
+            app:layout_constraintTop_toTopOf="@id/lblMaxTransferThroughput"
+            app:layout_constraintStart_toEndOf="@id/lblMaxTransferThroughput"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <TextView
+            android:id="@+id/lblTransferErrorRate"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Error Rate:"
+            android:textSize="16sp"
+            android:layout_marginTop="12dp"
+            app:layout_constraintTop_toBottomOf="@id/lblMaxTransferThroughput"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/txtTransferErrorRate" />
+
+        <TextView
+            android:id="@+id/txtTransferErrorRate"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="--%"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:gravity="end"
+            app:layout_constraintTop_toTopOf="@id/lblTransferErrorRate"
+            app:layout_constraintStart_toEndOf="@id/lblTransferErrorRate"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+</ScrollView>

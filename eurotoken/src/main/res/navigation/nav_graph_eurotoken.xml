@@ -11,6 +11,8 @@
         <action android:id="@+id/action_exchangeFragment_to_transactionsFragment" app:destination="@id/transactionsFragment" />
     </fragment>
 
+    <fragment android:id="@+id/benchmarksFragment" android:name="nl.tudelft.trustchain.eurotoken.ui.benchmarks.BenchmarksFragment" android:label="Benchmarks" tools:layout="@layout/fragment_benchmarks" />
+
     <fragment android:id="@+id/transferFragment" android:name="nl.tudelft.trustchain.eurotoken.ui.transfer.TransferFragment" android:label="Balance" tools:layout="@layout/fragment_transfer_euro">
         <action android:id="@+id/action_transferFragment_to_transportChoiceSheet" app:destination="@id/transportChoiceSheet" />
 
