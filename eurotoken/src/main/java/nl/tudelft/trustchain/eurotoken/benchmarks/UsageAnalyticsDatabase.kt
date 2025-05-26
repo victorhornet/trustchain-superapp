@@ -16,7 +16,7 @@ import androidx.room.RoomDatabase
         TransferDoneEvent::class,
         TransferCancelledEvent::class
     ],
-    version = 1, // Increment if schema changes.
+    version = 2, // Increment if schema changes.
     exportSchema = false
 )
 abstract class UsageAnalyticsDatabase : RoomDatabase() {
@@ -35,6 +35,7 @@ abstract class UsageAnalyticsDatabase : RoomDatabase() {
                     "eurotoken_usage_analytics_db"
                 )
                     // Add migrations here if you change schema later
+                    .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
                 instance

@@ -11,7 +11,7 @@ object UsageLogger {
 
     private var dao: UsageEventsDao? = null
     private val scope = CoroutineScope(Dispatchers.IO) // Use IO dispatcher for database operations
-    private var currentTransactionId: String? = null;
+    private var currentTransactionId: String? = null
     private var currentTransferId: String? = null
 
 
@@ -35,7 +35,7 @@ object UsageLogger {
             payload = payload
         )
         scope.launch { dao?.insertTransactionStartEvent(event) }
-        currentTransactionId = transactionId;
+        currentTransactionId = transactionId
         Log.i("UsageLogger", "Transaction started: $transactionId")
         return transactionId
     }
@@ -88,7 +88,7 @@ object UsageLogger {
             transactionId = currentTransactionId !!,
             transferId = transferId,
             timestamp = getCurrentTimestamp(),
-            payloadSize = payloadSize,
+            payloadSize = payloadSize ?: 0,
             direction = direction
         )
         currentTransferId = transferId
@@ -98,11 +98,15 @@ object UsageLogger {
     }
 
     fun logTransferDone(receivedPayload: Int?) {
+        if (currentTransactionId == null) {
+            throw IllegalStateException("logTransferDone called before logTransactionStart")
+        }
         if (currentTransferId == null) {
             throw IllegalStateException("logTransferDone called before logTransferStart")
         }
         val event = TransferDoneEvent(
             transferId = currentTransferId !!,
+            transactionId = currentTransactionId !!,
             timestamp = getCurrentTimestamp(),
             receivedPayload = receivedPayload
         )
@@ -112,7 +116,7 @@ object UsageLogger {
 
     fun logTransferError(error: TransferError) {
         if (currentTransferId == null) {
-            throw IllegalStateException("logTransferError called before logTransferStart")
+            return
         }
         val event = TransferErrorEvent(
             transferId = currentTransferId !!,

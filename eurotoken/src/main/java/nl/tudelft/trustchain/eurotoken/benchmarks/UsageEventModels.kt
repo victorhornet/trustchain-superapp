@@ -48,7 +48,7 @@ enum class TransactionCancelReason(val value: String) {
 data class TransactionDoneEvent(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val transactionId: String,
-    val timestamp: Long,
+    val timestamp: Long
 )
 
 /**
@@ -76,6 +76,7 @@ enum class TransferDirection(val value: String) {
 data class TransferDoneEvent(
     @PrimaryKey
     val transferId: String,
+    val transactionId: String,
     val timestamp: Long,
     val receivedPayload: Int?
 )
