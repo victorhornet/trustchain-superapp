@@ -147,9 +147,9 @@ class NfcReaderActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
                 isoDep.connect()
                 isoDep.timeout = 5000
 
+                UsageLogger.logTransactionCheckpointStart("Select AID")
                 runOnUiThread { updateStatus("Tag connected. Selecting App...") }
                 Log.d(TAG, "Sending SELECT AID: ${CMD_SELECT_AID.toHex()}")
-
                 UsageLogger.logTransferStart(TransferDirection.OUTBOUND, CMD_SELECT_AID.size)
                 val selectResult = isoDep.transceive(CMD_SELECT_AID)
                 Log.d(TAG, "SELECT AID response: ${selectResult.toHex()}")
@@ -158,12 +158,16 @@ class NfcReaderActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
                     Log.e(TAG, "SELECT AID failed. Status: ${selectResult.getStatusString()}")
                     runOnUiThread { updateStatus("Failed to select App on tag.") }
                     finishWithError(NfcError.AID_SELECT_FAILED)
+                    UsageLogger.logTransactionCheckpointEnd("Select AID")
                     return@withContext
                 }
                 Log.i(TAG, "AID Selected successfully.")
                 UsageLogger.logTransferDone(selectResult?.size)
 
+                UsageLogger.logTransactionCheckpointEnd("Select AID")
+                UsageLogger.logTransactionCheckpointStart("Read Transaction Info")
                 runOnUiThread { updateStatus("App selected. Reading confirmation...") }
+
 
                 Log.d(TAG, "Sending READ DATA: ${CMD_READ_DATA.toHex()}")
                 UsageLogger.logTransferStart(TransferDirection.OUTBOUND, CMD_READ_DATA.size)
@@ -172,10 +176,12 @@ class NfcReaderActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
 
                 Log.d(TAG, "READ DATA response: ${readResult.toHex()}")
 
+
                 if (checkSuccess(readResult)) {
                     val payloadBytes = readResult.copyOfRange(0, readResult.size - 2) // no SW1,SW2
                     if (payloadBytes.isEmpty()) {
                         UsageLogger.logTransferError(TransferError.PAYLOAD_EMPTY)
+                        UsageLogger.logTransactionCheckpointEnd("Read Transaction Info")
                         Log.w(TAG, "No data payload received from HCE service (empty response).")
                         finishWithError(NfcError.READ_FAILED)
                         return@withContext
@@ -217,6 +223,7 @@ class NfcReaderActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
 //                    finishWithError(error)
                 }
                 UsageLogger.logTransferDone(readResult?.size)
+                UsageLogger.logTransactionCheckpointEnd("Read Transaction Info")
             }
         } catch (e: TagLostException) {
             UsageLogger.logTransferError(TransferError.DISCONNECTED)

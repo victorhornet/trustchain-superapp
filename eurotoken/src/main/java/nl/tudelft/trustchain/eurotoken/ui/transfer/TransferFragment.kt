@@ -35,6 +35,8 @@ import nl.tudelft.trustchain.eurotoken.common.Mode
 import androidx.core.os.bundleOf
 import nl.tudelft.trustchain.eurotoken.common.TransactionArgs
 import nl.tudelft.trustchain.eurotoken.common.Channel
+import kotlin.math.ceil
+import kotlin.math.floor
 
 class TransferFragment : EurotokenBaseFragment(R.layout.fragment_transfer_euro) {
     private val binding by viewBinding(FragmentTransferEuroBinding::bind)
@@ -152,6 +154,7 @@ class TransferFragment : EurotokenBaseFragment(R.layout.fragment_transfer_euro) 
                 return@setOnClickListener
             }
 
+            val extraPayloadBytes = getExtraPayloadBytes()
             val myPublicKey = getTrustChainCommunity().myPeer.publicKey.keyToHash().toHex()
             val myName = ContactStore.getInstance(requireContext()).getContactFromPublicKey(getTrustChainCommunity().myPeer.publicKey)?.name ?: ""
 
@@ -168,7 +171,8 @@ class TransferFragment : EurotokenBaseFragment(R.layout.fragment_transfer_euro) 
                 amount = amount,
                 publicKey = myPublicKey,
                 name = myName,
-                qrData = qrJsonData
+                qrData = qrJsonData,
+                extraPayloadBytes = extraPayloadBytes
             )
 
             val bundle = bundleOf(TransportChoiceSheet.ARG_TRANSACTION_ARGS_RECEIVED to transactionArgs)
@@ -185,10 +189,12 @@ class TransferFragment : EurotokenBaseFragment(R.layout.fragment_transfer_euro) 
                 return@setOnClickListener
             }
 
+            val extraPayloadBytes = getExtraPayloadBytes()
             val transactionArgs = TransactionArgs(
                 mode = Mode.SEND,
                 channel = Channel.QR,
-                amount = amount
+                amount = amount,
+                extraPayloadBytes = extraPayloadBytes
             )
 
             // todo: bottomsheet instaed?
@@ -369,6 +375,19 @@ class TransferFragment : EurotokenBaseFragment(R.layout.fragment_transfer_euro) 
                     ) {}
                 }
             )
+        }
+    }
+
+    private fun getExtraPayloadBytes(): Int {
+        val text = binding.edtExtraPayloadBytes.text.toString()
+        return if (text.isNotEmpty()) {
+            try {
+                text.toInt().coerceAtLeast(0)
+            } catch (e: NumberFormatException) {
+                0
+            }
+        } else {
+            0
         }
     }
 }

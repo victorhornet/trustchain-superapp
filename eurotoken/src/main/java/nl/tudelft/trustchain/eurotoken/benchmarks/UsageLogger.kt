@@ -13,6 +13,7 @@ object UsageLogger {
     private val scope = CoroutineScope(Dispatchers.IO) // Use IO dispatcher for database operations
     private var currentTransactionId: String? = null
     private var currentTransferId: String? = null
+    private val activeCheckpoints = mutableMapOf<String, Long>() // checkpointName -> startTimestamp
 
 
     fun initialize(context: Context) {
@@ -36,6 +37,7 @@ object UsageLogger {
         )
         scope.launch { dao?.insertTransactionStartEvent(event) }
         currentTransactionId = transactionId
+        activeCheckpoints.clear() // Clear any previous checkpoint state
         Log.i("UsageLogger", "Transaction started: $transactionId")
         return transactionId
     }
@@ -76,6 +78,7 @@ object UsageLogger {
             timestamp = getCurrentTimestamp()
         )
         scope.launch { dao?.insertTransactionDoneEvent(event) }
+        activeCheckpoints.clear() // Clear checkpoint state when transaction ends
         Log.i("UsageLogger", "Transaction done")
     }
 
@@ -137,5 +140,38 @@ object UsageLogger {
         )
         scope.launch { dao?.insertTransferCancelledEvent(event) }
         Log.i("UsageLogger", "Transfer cancelled")
+    }
+
+    fun logTransactionCheckpointStart(checkpointName: String) {
+        if (currentTransactionId == null) {
+            throw IllegalStateException("logTransactionCheckpointStart called before logTransactionStart")
+        }
+        val timestamp = getCurrentTimestamp()
+        activeCheckpoints[checkpointName] = timestamp
+        val event = TransactionCheckpointStartEvent(
+            transactionId = currentTransactionId!!,
+            checkpointName = checkpointName,
+            timestamp = timestamp
+        )
+        scope.launch { dao?.insertTransactionCheckpointStartEvent(event) }
+        Log.i("UsageLogger", "Transaction checkpoint '$checkpointName' started")
+    }
+
+    fun logTransactionCheckpointEnd(checkpointName: String) {
+        if (currentTransactionId == null) {
+            throw IllegalStateException("logTransactionCheckpointEnd called before logTransactionStart")
+        }
+        val timestamp = getCurrentTimestamp()
+        val event = TransactionCheckpointEndEvent(
+            transactionId = currentTransactionId!!,
+            checkpointName = checkpointName,
+            timestamp = timestamp
+        )
+        scope.launch { dao?.insertTransactionCheckpointEndEvent(event) }
+        
+        // Calculate duration if start was logged
+        val startTime = activeCheckpoints[checkpointName]
+        val duration = if (startTime != null) timestamp - startTime else null
+        Log.i("UsageLogger", "Transaction checkpoint '$checkpointName' ended${if (duration != null) " (${duration}ms)" else ""}")
     }
 }

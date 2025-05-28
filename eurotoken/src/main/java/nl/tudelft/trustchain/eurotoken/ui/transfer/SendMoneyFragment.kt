@@ -76,8 +76,11 @@ class SendMoneyFragment : EurotokenBaseFragment(R.layout.fragment_send_money) {
                     TAG,
                     "NFC Reader Activity finished with result code: ${result.resultCode}"
                 )
+                UsageLogger.logTransactionCheckpointStart("Send Money")
                 if (result.resultCode == Activity.RESULT_OK) {
-                    // TODO: temporary solution for benchmarks, move this to appropriate place (finalize transaction).
+                    // TODO: temporary solution for benchmarks because transactions break,
+                    //  move this to appropriate place (finalize transaction).
+                    UsageLogger.logTransactionCheckpointEnd("Send Money")
                     UsageLogger.logTransactionDone()
                     val receivedData =
                         result.data?.getStringExtra(

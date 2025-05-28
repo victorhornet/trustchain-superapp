@@ -14,9 +14,11 @@ import androidx.room.RoomDatabase
         TransferStartEvent::class,
         TransferErrorEvent::class,
         TransferDoneEvent::class,
-        TransferCancelledEvent::class
+        TransferCancelledEvent::class,
+        TransactionCheckpointStartEvent::class,
+        TransactionCheckpointEndEvent::class
     ],
-    version = 2, // Increment if schema changes.
+    version = 3, // Increment if schema changes.
     exportSchema = false
 )
 abstract class UsageAnalyticsDatabase : RoomDatabase() {

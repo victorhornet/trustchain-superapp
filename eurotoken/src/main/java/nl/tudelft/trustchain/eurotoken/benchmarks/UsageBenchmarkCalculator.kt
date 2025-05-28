@@ -218,4 +218,93 @@ class UsageBenchmarkCalculator(private val dao: UsageEventsDao) {
         val totalDone = dao.getTransferDoneCount()
         (totalDone.toDouble() / totalStarted) * 100.0
     }
+
+    /**
+     * Calculates detailed breakdown of transaction time by checkpoint phases
+     */
+    suspend fun calculateTransactionBreakdown(transactionId: String): TransactionBreakdown? = onIO {
+        val startEvent = dao.getTransactionStartEvent(transactionId) ?: return@onIO null
+        val endEvent = dao.getTransactionDoneEvent(transactionId) ?: return@onIO null
+        
+        val totalDuration = endEvent.timestamp - startEvent.timestamp
+        if (totalDuration <= 0) return@onIO null
+        
+        val checkpointStarts = dao.getTransactionCheckpointStartEvents(transactionId)
+        val checkpointEnds = dao.getTransactionCheckpointEndEvents(transactionId)
+        
+        val checkpointTimings = aggregateCheckpointTimings(checkpointStarts, checkpointEnds)
+        val totalCheckpointTime = checkpointTimings.sumOf { it.totalDurationMs }
+        val otherTime = maxOf(0L, totalDuration - totalCheckpointTime)
+        
+        TransactionBreakdown(
+            transactionId = transactionId,
+            totalDurationMs = totalDuration,
+            checkpointTimings = checkpointTimings,
+            otherDurationMs = otherTime
+        )
+    }
+
+    /**
+     * Gets breakdown for all completed transactions
+     */
+    suspend fun calculateAllTransactionBreakdowns(): List<TransactionBreakdown> = onIO {
+        val completedTransactions = dao.getAllTransactionDoneEvents()
+        completedTransactions.mapNotNull { transaction ->
+            calculateTransactionBreakdown(transaction.transactionId)
+        }
+    }
+
+    /**
+     * Calculates average transaction breakdown across all completed transactions
+     */
+    suspend fun calculateAverageTransactionBreakdown(): AverageTransactionBreakdown? = onIO {
+        val allBreakdowns = calculateAllTransactionBreakdowns()
+        if (allBreakdowns.isEmpty()) return@onIO null
+
+        val totalTransactions = allBreakdowns.size
+        val avgTotalDuration = allBreakdowns.sumOf { it.totalDurationMs } / totalTransactions
+
+        // Aggregate checkpoint timings by name across all transactions
+        val checkpointAggregation = mutableMapOf<String, MutableList<Long>>()
+        allBreakdowns.forEach { breakdown ->
+            breakdown.checkpointTimings.forEach { timing ->
+                checkpointAggregation.getOrPut(timing.name) { mutableListOf() }.add(timing.totalDurationMs)
+            }
+        }
+
+        // Calculate average for each checkpoint name
+        val avgCheckpointTimings = checkpointAggregation.map { (name, durations) ->
+            AverageCheckpointTiming(
+                name = name,
+                averageDurationMs = durations.sum() / totalTransactions, // Average across all transactions
+                transactionCount = durations.size
+            )
+        }
+
+        val totalCheckpointTime = avgCheckpointTimings.sumOf { it.averageDurationMs }
+        val otherTime = maxOf(0L, avgTotalDuration - totalCheckpointTime)
+
+        AverageTransactionBreakdown(
+            totalTransactions = totalTransactions,
+            averageTotalDurationMs = avgTotalDuration,
+            averageCheckpointTimings = avgCheckpointTimings,
+            averageOtherDurationMs = otherTime
+        )
+    }
+
+    /**
+     * Clears all benchmark data from the database
+     */
+    suspend fun clearAllBenchmarkData() = onIO {
+        dao.clearTransactionStartEvents()
+        dao.clearTransactionErrorEvents()
+        dao.clearTransactionCancelEvents()
+        dao.clearTransactionDoneEvents()
+        dao.clearTransactionCheckpointStartEvents()
+        dao.clearTransactionCheckpointEndEvents()
+        dao.clearTransferStartEvents()
+        dao.clearTransferDoneEvents()
+        dao.clearTransferErrorEvents()
+        dao.clearTransferCancelledEvents()
+    }
 }

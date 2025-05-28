@@ -32,6 +32,12 @@ interface UsageEventsDao {
     @Insert
     suspend fun insertTransferCancelledEvent(event: TransferCancelledEvent)
 
+    @Insert
+    suspend fun insertTransactionCheckpointStartEvent(event: TransactionCheckpointStartEvent)
+
+    @Insert
+    suspend fun insertTransactionCheckpointEndEvent(event: TransactionCheckpointEndEvent)
+
     // --- Queries for statistics ---
 
     @Query("SELECT * FROM transaction_start_events")
@@ -105,6 +111,9 @@ interface UsageEventsDao {
     @Query("DELETE FROM transfer_error_events")
     suspend fun clearTransferErrorEvents()
 
+    @Query("DELETE FROM transfer_cancel_events")
+    suspend fun clearTransferCancelledEvents()
+
     // --- Queries for benchmarks ---
     // Transfer failure rate: count(transfer_error_events) / count(transfer_start_events)
     @Query("SELECT COUNT(*) FROM transfer_error_events")
@@ -130,4 +139,16 @@ interface UsageEventsDao {
 
     @Query("SELECT COUNT(*) FROM transaction_done_events")
     suspend fun getTransactionDoneCount(): Long
+
+    @Query("SELECT * FROM transaction_checkpoint_start_events WHERE transactionId = :transactionId")
+    suspend fun getTransactionCheckpointStartEvents(transactionId: String): List<TransactionCheckpointStartEvent>
+
+    @Query("SELECT * FROM transaction_checkpoint_end_events WHERE transactionId = :transactionId")
+    suspend fun getTransactionCheckpointEndEvents(transactionId: String): List<TransactionCheckpointEndEvent>
+
+    @Query("DELETE FROM transaction_checkpoint_start_events")
+    suspend fun clearTransactionCheckpointStartEvents()
+
+    @Query("DELETE FROM transaction_checkpoint_end_events")
+    suspend fun clearTransactionCheckpointEndEvents()
 }

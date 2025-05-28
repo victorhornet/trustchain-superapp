@@ -118,3 +118,25 @@ enum class TransferError(val value: String) {
     UNKNOWN("unknown"),
     PAYLOAD_EMPTY("payload_empty")
 }
+
+/**
+ * Logged when a transaction checkpoint/phase starts
+ */
+@Entity(tableName = "transaction_checkpoint_start_events")
+data class TransactionCheckpointStartEvent(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val transactionId: String,
+    val checkpointName: String,
+    val timestamp: Long
+)
+
+/**
+ * Logged when a transaction checkpoint/phase ends
+ */
+@Entity(tableName = "transaction_checkpoint_end_events")
+data class TransactionCheckpointEndEvent(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val transactionId: String,
+    val checkpointName: String,
+    val timestamp: Long
+)
