@@ -29,6 +29,7 @@ import nl.tudelft.trustchain.common.util.QRCodeUtils
 import androidx.navigation.fragment.navArgs
 // import androidx.compose.runtime.snapshots.current
 import nl.tudelft.ipv8.Peer
+import nl.tudelft.trustchain.eurotoken.benchmarks.UsageLogger
 import nl.tudelft.trustchain.eurotoken.common.Channel
 import org.json.JSONException
 import nl.tudelft.trustchain.eurotoken.community.EuroTokenCommunity
@@ -76,7 +77,12 @@ class SendMoneyFragment : EurotokenBaseFragment(R.layout.fragment_send_money) {
                     TAG,
                     "NFC Reader Activity finished with result code: ${result.resultCode}"
                 )
+                UsageLogger.logTransactionCheckpointStart("Send Money")
                 if (result.resultCode == Activity.RESULT_OK) {
+                    // TODO: temporary solution for benchmarks because transactions break,
+                    //  move this to appropriate place (finalize transaction).
+                    UsageLogger.logTransactionCheckpointEnd("Send Money")
+                    UsageLogger.logTransactionDone()
                     val receivedData =
                         result.data?.getStringExtra(
                             "nl.tudelft.trustchain.eurotoken.NFC_DATA"
@@ -286,6 +292,7 @@ class SendMoneyFragment : EurotokenBaseFragment(R.layout.fragment_send_money) {
                     visibility = View.VISIBLE
                     setOnClickListener {
                         Log.d(TAG, "NFC Button clicked. Launching NfcReaderActivity…")
+                        UsageLogger.logTransactionStart(jsonData)
                         val intent = Intent(requireContext(), NfcReaderActivity::class.java)
                         nfcReaderLauncher.launch(intent)
                     }

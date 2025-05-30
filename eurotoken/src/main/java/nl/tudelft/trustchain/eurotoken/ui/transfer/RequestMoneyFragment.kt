@@ -23,6 +23,7 @@ import org.json.JSONObject
 import nl.tudelft.trustchain.common.eurotoken.TransactionRepository
 import nl.tudelft.trustchain.common.contacts.ContactStore
 import java.nio.ByteBuffer
+import kotlin.math.ceil
 
 class RequestMoneyFragment : EurotokenBaseFragment(R.layout.fragment_request_money) {
     private var _binding: FragmentRequestMoneyBinding? = null
@@ -49,6 +50,7 @@ class RequestMoneyFragment : EurotokenBaseFragment(R.layout.fragment_request_mon
 
         val transactionArgs = navArgs.transactionArgs
 
+
         if (transactionArgs == null) {
             Toast.makeText(requireContext(), "Error: Request details missing.", Toast.LENGTH_LONG).show()
             findNavController().popBackStack()
@@ -56,21 +58,17 @@ class RequestMoneyFragment : EurotokenBaseFragment(R.layout.fragment_request_mon
         }
 
         // similar to transferfragment for qr
-        // check keytobin
         val myPublicKey = getTrustChainCommunity().myPeer.publicKey.keyToBin().toHex()
         val myName = ContactStore.getInstance(requireContext()).getContactFromPublicKey(getTrustChainCommunity().myPeer.publicKey)?.name ?: ""
         val amount = transactionArgs.amount
-
-        // used to test chunking, more than >250 bytes
-        // should log multiple binary reads now... &  work
-
-        val padding = "B".repeat(300)
         val jsonData = JSONObject().apply {
             put("amount", amount as Any)
             put("public_key", myPublicKey as Any)
             put("name", myName)
             put("type", "transfer_request")
-            put("padding", padding) // test chunking
+            if (transactionArgs.extraPayloadBytes > 0) {
+                put("dummy_data", generateDummyData(transactionArgs.extraPayloadBytes))
+            }
         }.toString()
 
         // now enable/disable NFC request button based on channel -> dynamic manner
@@ -96,14 +94,11 @@ class RequestMoneyFragment : EurotokenBaseFragment(R.layout.fragment_request_mon
             val headerByes = ByteBuffer.allocate(4).putInt(jsonData.length).array()
             val hcePayload = headerByes + jsonData.toByteArray(Charsets.UTF_8)
             EuroTokenHCEService.setPayload(hcePayload)
-            // val payloadBytes = jsonData.toByteArray(Charsets.UTF_8)
-            // EuroTokenHCEService.setPayload(payloadBytes)
             Log.d(TAG, "NFC HCE Payload set for request: $jsonData, size: ${hcePayload.size}")
             Toast.makeText(requireContext(), "NFC active. Ready to be tapped by sender.", Toast.LENGTH_SHORT).show()
         }
 
         // nfc
-        // still static
         binding.btnNfcRequest.setOnClickListener {
             if (transactionArgs.channel == Channel.NFC) {
                 val payloadBytes = jsonData.toByteArray(Charsets.UTF_8)
@@ -134,6 +129,13 @@ class RequestMoneyFragment : EurotokenBaseFragment(R.layout.fragment_request_mon
             EuroTokenHCEService.clearPayload()
         }
         _binding = null
+    }
+
+    private fun generateDummyData(bytes: Int): String {
+        // Since Java/Kotlin characters are Unicode (2 bytes each),
+        // we need ceil(bytes/2) characters (minimum 1)
+        val characterCount = maxOf(1, ceil(bytes / 2.0).toInt())
+        return "A".repeat(characterCount)
     }
 
     companion object {
