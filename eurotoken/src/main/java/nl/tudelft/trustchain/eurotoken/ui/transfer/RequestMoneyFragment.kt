@@ -22,6 +22,8 @@ import nl.tudelft.ipv8.util.toHex
 import org.json.JSONObject
 import nl.tudelft.trustchain.common.eurotoken.TransactionRepository
 import nl.tudelft.trustchain.common.contacts.ContactStore
+import nl.tudelft.trustchain.eurotoken.benchmarks.UsageLogger
+import kotlin.math.ceil
 
 class RequestMoneyFragment : EurotokenBaseFragment(R.layout.fragment_request_money) {
     private var _binding: FragmentRequestMoneyBinding? = null
@@ -48,6 +50,7 @@ class RequestMoneyFragment : EurotokenBaseFragment(R.layout.fragment_request_mon
 
         val transactionArgs = navArgs.transactionArgs
 
+
         if (transactionArgs == null) {
             Toast.makeText(requireContext(), "Error: Request details missing.", Toast.LENGTH_LONG).show()
             findNavController().popBackStack()
@@ -63,6 +66,9 @@ class RequestMoneyFragment : EurotokenBaseFragment(R.layout.fragment_request_mon
             put("public_key", myPublicKey as Any)
             put("name", myName)
             put("type", "transfer_request")
+            if (transactionArgs.extraPayloadBytes > 0) {
+                put("dummy_data", generateDummyData(transactionArgs.extraPayloadBytes))
+            }
         }.toString()
 
         // now enable/disable NFC request button based on channel -> dynamic manner
@@ -90,9 +96,9 @@ class RequestMoneyFragment : EurotokenBaseFragment(R.layout.fragment_request_mon
         }
 
         // nfc
-        // still static
         binding.btnNfcRequest.setOnClickListener {
             if (transactionArgs.channel == Channel.NFC) {
+                UsageLogger.logTransactionStart(jsonData)
                 val payloadBytes = jsonData.toByteArray(Charsets.UTF_8)
                 EuroTokenHCEService.setPayload(payloadBytes)
                 Toast.makeText(requireContext(), "NFC Re-activated (Requesting ${TransactionRepository.prettyAmount(amount)})", Toast.LENGTH_LONG).show()
@@ -100,6 +106,7 @@ class RequestMoneyFragment : EurotokenBaseFragment(R.layout.fragment_request_mon
         }
         binding.btnContinue.setOnClickListener {
             if (transactionArgs.channel == Channel.NFC) {
+                UsageLogger.logTransactionDone()
                 EuroTokenHCEService.clearPayload()
             }
             findNavController().navigate(R.id.action_requestMoneyFragment_to_transactionsFragment)
@@ -118,9 +125,17 @@ class RequestMoneyFragment : EurotokenBaseFragment(R.layout.fragment_request_mon
         super.onDestroyView()
         if (navArgs.transactionArgs?.channel == Channel.NFC) {
             Log.d(TAG, "RequestMoneyFragment onDestroyView, clearing HCE payload for NFC.")
+            UsageLogger.logTransactionDone()
             EuroTokenHCEService.clearPayload()
         }
         _binding = null
+    }
+
+    private fun generateDummyData(bytes: Int): String {
+        // Since Java/Kotlin characters are Unicode (2 bytes each), 
+        // we need ceil(bytes/2) characters (minimum 1)
+        val characterCount = maxOf(1, ceil(bytes / 2.0).toInt())
+        return "A".repeat(characterCount)
     }
 
     companion object {

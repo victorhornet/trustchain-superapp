@@ -3,6 +3,9 @@ package nl.tudelft.trustchain.eurotoken.nfc
 import android.nfc.cardemulation.HostApduService
 import android.os.Bundle
 import android.util.Log
+import nl.tudelft.trustchain.eurotoken.benchmarks.TransferDirection
+import nl.tudelft.trustchain.eurotoken.benchmarks.TransferError
+import nl.tudelft.trustchain.eurotoken.benchmarks.UsageLogger
 import java.util.*
 // import com.google.gson.Gson
 
@@ -25,6 +28,8 @@ class EuroTokenHCEService : HostApduService() {
 
         // AID ->HCE service only activated when read specific AID
         const val AID_EUROTOKEN = "F222222222"
+
+
 
         // Custom APDU command
         // (READ APDU: 00 B0 00 00 00 (CLA=00, INS=B0, P1=00, P2=00, Le=00 - Read max available ->256Bytes))
@@ -92,7 +97,7 @@ class EuroTokenHCEService : HostApduService() {
 
     // android sys calls this when apdu command is received from the reader
     // after aid has been selected
-    override fun processCommandApdu(commandApdu: ByteArray?, extras: Bundle?): ByteArray? {
+    override fun processCommandApdu(commandApdu: ByteArray?, extras: Bundle?): ByteArray {
         if (commandApdu == null) {
             return SW_UNKNOWN_ERROR
         }
@@ -126,7 +131,10 @@ class EuroTokenHCEService : HostApduService() {
                 }
 
                 Log.d(TAG, "Sending entire payload (size: ${payloadToSend.size})")
-                return payloadToSend + SW_OK
+
+
+                val payload = payloadToSend + SW_OK
+                return payload
             }
         }
         return SW_INS_NOT_SUPPORTED
@@ -135,6 +143,7 @@ class EuroTokenHCEService : HostApduService() {
     // called when nfc connection is lost or the reader deselects our aid
     override fun onDeactivated(reason: Int) {
         Log.i(TAG, "HCE Service Deactivated. Reason: $reason")
+        UsageLogger.logTransferError(TransferError.DISCONNECTED)
         // potentially clear data???!
     }
 

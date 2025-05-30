@@ -11,7 +11,7 @@ data class TransactionStartEvent(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val transactionId: String,
     val timestamp: Long,
-    val payload: String // JSON string for amount, currency, notes etc.
+    val payload: String
 )
 
 /**
@@ -48,7 +48,7 @@ enum class TransactionCancelReason(val value: String) {
 data class TransactionDoneEvent(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val transactionId: String,
-    val timestamp: Long,
+    val timestamp: Long
 )
 
 /**
@@ -60,7 +60,7 @@ data class TransferStartEvent(
     val transferId: String,
     val transactionId: String,
     val timestamp: Long,
-    val payloadSize: Long,
+    val payloadSize: Int,
     val direction: TransferDirection
 )
 
@@ -76,7 +76,9 @@ enum class TransferDirection(val value: String) {
 data class TransferDoneEvent(
     @PrimaryKey
     val transferId: String,
+    val transactionId: String,
     val timestamp: Long,
+    val receivedPayload: Int?
 )
 
 /**
@@ -101,8 +103,40 @@ data class TransferErrorEvent(
     val error: TransferError
 )
 
+@Entity(tableName = "transfer_cancel_events")
+data class TransferCancelledEvent(
+    @PrimaryKey
+    val transferId: String,
+    val timestamp: Long
+)
+
 enum class TransferError(val value: String) {
     TIMEOUT("timeout"),
     DISCONNECTED("disconnected"),
-    MALFORMED("malformed")
+    MALFORMED("malformed"),
+    IO_ERROR("io_error"),
+    UNKNOWN("unknown"),
+    PAYLOAD_EMPTY("payload_empty")
 }
+
+/**
+ * Logged when a transaction checkpoint/phase starts
+ */
+@Entity(tableName = "transaction_checkpoint_start_events")
+data class TransactionCheckpointStartEvent(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val transactionId: String,
+    val checkpointName: String,
+    val timestamp: Long
+)
+
+/**
+ * Logged when a transaction checkpoint/phase ends
+ */
+@Entity(tableName = "transaction_checkpoint_end_events")
+data class TransactionCheckpointEndEvent(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val transactionId: String,
+    val checkpointName: String,
+    val timestamp: Long
+)

@@ -18,6 +18,9 @@ import java.io.IOException
 import android.nfc.TagLostException
 import android.view.View
 import nl.tudelft.ipv8.util.hexToBytes
+import nl.tudelft.trustchain.eurotoken.benchmarks.TransferDirection
+import nl.tudelft.trustchain.eurotoken.benchmarks.TransferError
+import nl.tudelft.trustchain.eurotoken.benchmarks.UsageLogger
 import nl.tudelft.trustchain.eurotoken.databinding.ActivityNfcReaderBinding
 import java.util.*
 
@@ -139,32 +142,46 @@ class NfcReaderActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
         // isodep -> |connect | |transceive| |close| are blocking
         // must not run on main thread
         try {
+            // TODO starts receiving
             withContext(Dispatchers.IO) {
                 isoDep.connect()
                 isoDep.timeout = 5000
 
+                UsageLogger.logTransactionCheckpointStart("Select AID")
                 runOnUiThread { updateStatus("Tag connected. Selecting App...") }
                 Log.d(TAG, "Sending SELECT AID: ${CMD_SELECT_AID.toHex()}")
+                UsageLogger.logTransferStart(TransferDirection.OUTBOUND, CMD_SELECT_AID.size)
                 val selectResult = isoDep.transceive(CMD_SELECT_AID)
                 Log.d(TAG, "SELECT AID response: ${selectResult.toHex()}")
-
                 if (!checkSuccess(selectResult)) {
+                    UsageLogger.logTransferError(TransferError.MALFORMED)
                     Log.e(TAG, "SELECT AID failed. Status: ${selectResult.getStatusString()}")
                     runOnUiThread { updateStatus("Failed to select App on tag.") }
                     finishWithError(NfcError.AID_SELECT_FAILED)
+                    UsageLogger.logTransactionCheckpointEnd("Select AID")
                     return@withContext
                 }
-
                 Log.i(TAG, "AID Selected successfully.")
+                UsageLogger.logTransferDone(selectResult?.size)
+
+                UsageLogger.logTransactionCheckpointEnd("Select AID")
+                UsageLogger.logTransactionCheckpointStart("Read Transaction Info")
                 runOnUiThread { updateStatus("App selected. Reading confirmation...") }
 
+
                 Log.d(TAG, "Sending READ DATA: ${CMD_READ_DATA.toHex()}")
+                UsageLogger.logTransferStart(TransferDirection.OUTBOUND, CMD_READ_DATA.size)
                 val readResult = isoDep.transceive(CMD_READ_DATA)
+
+
                 Log.d(TAG, "READ DATA response: ${readResult.toHex()}")
+
 
                 if (checkSuccess(readResult)) {
                     val payloadBytes = readResult.copyOfRange(0, readResult.size - 2) // no SW1,SW2
                     if (payloadBytes.isEmpty()) {
+                        UsageLogger.logTransferError(TransferError.PAYLOAD_EMPTY)
+                        UsageLogger.logTransactionCheckpointEnd("Read Transaction Info")
                         Log.w(TAG, "No data payload received from HCE service (empty response).")
                         finishWithError(NfcError.READ_FAILED)
                         return@withContext
@@ -195,6 +212,7 @@ class NfcReaderActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
                     }
 //                    finishWithSuccess(payloadString)
                 } else {
+                    UsageLogger.logTransferError(TransferError.MALFORMED)
                     val statusString = readResult.getStatusString()
                     Log.e(TAG, "READ DATA failed. Status: $statusString")
                     val error = when {
@@ -204,21 +222,28 @@ class NfcReaderActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
                     runOnUiThread { updateStatus("Failed to read data. Status: $statusString") }
 //                    finishWithError(error)
                 }
+                UsageLogger.logTransferDone(readResult?.size)
+                UsageLogger.logTransactionCheckpointEnd("Read Transaction Info")
             }
         } catch (e: TagLostException) {
+            UsageLogger.logTransferError(TransferError.DISCONNECTED)
             Log.e(TAG, "Tag lost during communication.", e)
             runOnUiThread { updateStatus("NFC tag moved away too quickly.") }
             finishWithError(NfcError.TAG_LOST)
         } catch (e: IOException) {
+            UsageLogger.logTransferError(TransferError.IO_ERROR)
             Log.e(TAG, "IOException during NFC communication.", e)
             runOnUiThread { updateStatus("Communication error. Try again.") }
             finishWithError(NfcError.IO_ERROR)
         } catch (e: Exception) {
+            UsageLogger.logTransferError(TransferError.UNKNOWN)
             Log.e(TAG, "Unexpected error during NFC communication.", e)
             runOnUiThread { updateStatus("An unexpected error occurred.") }
             finishWithError(NfcError.UNKNOWN_ERROR)
         } finally {
             try {
+                // Stop in case any transfer is still started
+                UsageLogger.logTransferCancelled()
                 isoDep.close()
             } catch (e: IOException) {
                 Log.e(TAG, "Error closing IsoDep.", e)
