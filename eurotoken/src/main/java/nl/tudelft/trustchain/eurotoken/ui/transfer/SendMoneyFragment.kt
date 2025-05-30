@@ -36,6 +36,7 @@ import nl.tudelft.trustchain.eurotoken.community.EuroTokenCommunity
 import nl.tudelft.trustchain.eurotoken.common.ConnectionData
 import nl.tudelft.trustchain.eurotoken.nfc.EuroTokenHCEService
 import org.json.JSONObject
+import java.nio.ByteBuffer
 
 class SendMoneyFragment : EurotokenBaseFragment(R.layout.fragment_send_money) {
     private var addContact = false
@@ -279,8 +280,13 @@ class SendMoneyFragment : EurotokenBaseFragment(R.layout.fragment_send_money) {
                 }.toString()
 
                 val payloadBytes = jsonData.toByteArray(Charsets.UTF_8)
-                EuroTokenHCEService.setPayload(payloadBytes)
-                Log.d(TAG, "⟶ HCE payload set for sending: $jsonData")
+                val payloadLen = payloadBytes.size
+
+                // 4byts for length
+                val headerByes = ByteBuffer.allocate(4).putInt(payloadLen).array()
+                val hcePayload = headerByes + payloadBytes
+                EuroTokenHCEService.setPayload(hcePayload)
+                Log.d(TAG, "⟶ HCE payload set for sending: $jsonData, size: ${hcePayload.size}")
                 binding.btnSend.apply {
                     text = "Start NFC Read"
                     visibility = View.VISIBLE
