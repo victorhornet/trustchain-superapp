@@ -3,6 +3,9 @@ import kotlin.math.min
 import android.nfc.cardemulation.HostApduService
 import android.os.Bundle
 import android.util.Log
+import nl.tudelft.trustchain.eurotoken.benchmarks.TransferDirection
+import nl.tudelft.trustchain.eurotoken.benchmarks.TransferError
+import nl.tudelft.trustchain.eurotoken.benchmarks.UsageLogger
 import java.util.*
 // import com.google.gson.Gson
 
@@ -26,6 +29,8 @@ class EuroTokenHCEService : HostApduService() {
 
         // AID ->HCE service only activated when read specific AID
         const val AID_EUROTOKEN = "F222222222"
+
+
 
         // Custom APDU command
         // (READ APDU: 00 B0 00 00 00 (CLA=00, INS=B0, P1=00, P2=00, Le=00 - Read max available ->256Bytes))
@@ -64,28 +69,11 @@ class EuroTokenHCEService : HostApduService() {
         fun clearPayload() {
             setPayload(null)
         }
-        // fun setPayload(payload: ByteArray?) {
-        //     synchronized(this) {
-        //         currentPayloadBytes = payload
-        //         if (payload != null) {
-        //             if (payload.size > MAX_CHUNK) {
-        //                 Log.w(TAG, "Payload size (${payload.size}) exceeds MAX_EXPECTED_CHUNK_SZE ($MAX_CHUNK). .")
-        //             }
-        //             Log.d(TAG, "Payload set for HCE. Size: ${payload.size}")
-        //         } else {
-        //             Log.d(TAG, "Payload cleared for HCE.")
-        //         }
-        //     }
-        // }
-
-        // fun clearPayload() {
-        //     setPayload(null)
-        // }
     }
 
     // android sys calls this when apdu command is received from the reader
     // after aid has been selected
-    override fun processCommandApdu(commandApdu: ByteArray?, extras: Bundle?): ByteArray? {
+    override fun processCommandApdu(commandApdu: ByteArray?, extras: Bundle?): ByteArray {
         if (commandApdu == null) {
             return SW_UNKNOWN_ERROR
         }
@@ -157,6 +145,7 @@ class EuroTokenHCEService : HostApduService() {
     // called when nfc connection is lost or the reader deselects our aid
     override fun onDeactivated(reason: Int) {
         Log.i(TAG, "HCE Service Deactivated. Reason: $reason")
+        UsageLogger.logTransferError(TransferError.DISCONNECTED)
         // potentially clear data???!
     }
 
