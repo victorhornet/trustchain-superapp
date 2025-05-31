@@ -75,9 +75,9 @@ class RequestMoneyFragment : EurotokenBaseFragment(R.layout.fragment_request_mon
         if (transactionArgs.channel == Channel.QR) {
             binding.txtIntro.text = "Have the sending party scan this QR code:"
             binding.btnNfcRequest.visibility = View.VISIBLE
-            binding.qr.visibility = View.GONE
-            binding.txtRequestData.visibility = View.GONE
-            binding.txtRequest.visibility = View.GONE
+            binding.qr.visibility = View.VISIBLE
+            binding.txtRequestData.visibility = View.VISIBLE
+            binding.txtRequest.visibility = View.VISIBLE
             lifecycleScope.launch {
                 val bitmap = withContext(Dispatchers.Default) { qrCodeUtils.createQR(jsonData) }
                 binding.qr.setImageBitmap(bitmap)
