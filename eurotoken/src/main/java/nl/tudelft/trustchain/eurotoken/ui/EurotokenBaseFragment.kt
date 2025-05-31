@@ -79,24 +79,6 @@ open class EurotokenBaseFragment(contentLayoutId: Int = 0) : BaseFragment(conten
         trustStore.createContactStateTable()
         vouchStore.createVouchTable()
 
-        // Inject dummy trust scores for UI testing if DB is empty
-        if (trustStore.getAllScores().isEmpty()) {
-            // Example dummy public keys (32 bytes each, random values)
-            val dummyKeys = listOf(
-                ByteArray(32) { 0x01 },
-                ByteArray(32) { 0x02 },
-                ByteArray(32) { 0x03 }
-            )
-            val dummyScores = listOf(80, 55, 30)
-            for ((key, score) in dummyKeys.zip(dummyScores)) {
-                trustStore.incrementTrust(key)
-                // Directly update to desired score
-                val method = trustStore.javaClass.getDeclaredMethod("updateScoreDirectly", ByteArray::class.java, Int::class.java)
-                method.isAccessible = true
-                method.invoke(trustStore, key, score)
-            }
-        }
-
         lifecycleScope.launchWhenResumed {
         }
     }

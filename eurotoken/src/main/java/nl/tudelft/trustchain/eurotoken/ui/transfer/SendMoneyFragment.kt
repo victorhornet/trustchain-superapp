@@ -35,6 +35,7 @@ import nl.tudelft.trustchain.eurotoken.community.EuroTokenCommunity
 import nl.tudelft.trustchain.eurotoken.common.ConnectionData
 import nl.tudelft.trustchain.eurotoken.nfc.EuroTokenHCEService
 import org.json.JSONObject
+import java.nio.ByteBuffer
 
 class SendMoneyFragment : EurotokenBaseFragment(R.layout.fragment_send_money) {
     private var addContact = false
@@ -255,8 +256,16 @@ class SendMoneyFragment : EurotokenBaseFragment(R.layout.fragment_send_money) {
                     }
                     setOnClickListener {
                         if (pubKey.isNullOrEmpty()) {
-                            qrCodeUtils.startQRScanner(this@SendMoneyFragment)
+                            Log.d(TAG, "Starting QR scanner for recipient")
+                            try {
+                                qrCodeUtils.startQRScanner(this@SendMoneyFragment)
+                                Log.d(TAG, "QR scanner started successfully")
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Failed to start QR scanner", e)
+                                Toast.makeText(requireContext(), "Failed to start QR scanner: ${e.message}", Toast.LENGTH_LONG).show()
+                            }
                         } else {
+                            Log.d(TAG, "Proceeding with known recipient: $pubKey")
                             finalizeTransaction(currentTransactionArgs)
                         }
                     }
@@ -273,8 +282,13 @@ class SendMoneyFragment : EurotokenBaseFragment(R.layout.fragment_send_money) {
                 }.toString()
 
                 val payloadBytes = jsonData.toByteArray(Charsets.UTF_8)
-                EuroTokenHCEService.setPayload(payloadBytes)
-                Log.d(TAG, "⟶ HCE payload set for sending: $jsonData")
+                 val payloadLen = payloadBytes.size
+
+                // 4byts for length
+                val headerByes = ByteBuffer.allocate(4).putInt(payloadLen).array()
+                val hcePayload = headerByes + payloadBytes
+                EuroTokenHCEService.setPayload(hcePayload)
+                Log.d(TAG, "⟶ HCE payload set for sending: $jsonData, size: ${hcePayload.size}")
                 binding.btnSend.apply {
                     text = "Start NFC Read"
                     visibility = View.VISIBLE
@@ -299,32 +313,104 @@ class SendMoneyFragment : EurotokenBaseFragment(R.layout.fragment_send_money) {
     // QR code still used old way
     @Deprecated("Using onActivityResult for QR scan…")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        Log.d(TAG, "onActivityResult: requestCode=$requestCode, resultCode=$resultCode")
+        Log.d(TAG, "Intent data: ${data?.extras?.keySet()?.joinToString()}")
+
         super.onActivityResult(requestCode, resultCode, data)
-        qrCodeUtils.parseActivityResult(requestCode, resultCode, data)
-            ?.let { rawQr ->
-                onQrScanned(rawQr)
+
+        try {
+            val rawQr = qrCodeUtils.parseActivityResult(requestCode, resultCode, data)
+            Log.d(TAG, "QR parse result: ${if (rawQr != null) "SUCCESS" else "NULL"}")
+            Log.d(TAG, "Raw QR content: $rawQr")
+
+            rawQr?.let { qrContent ->
+                Log.d(TAG, "Processing QR content (length: ${qrContent.length})")
+                onQrScanned(qrContent)
+            } ?: run {
+                Log.w(TAG, "QR parsing returned null - scan may have been cancelled or failed")
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "Exception in onActivityResult", e)
+            Toast.makeText(requireContext(), "QR scan error: ${e.message}", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun onQrScanned(qrContent: String) {
+        Log.d(TAG, "onQrScanned called with content: $qrContent")
+
+        // Add safety checks for empty/null content
+        if (qrContent.isBlank()) {
+            Log.e(TAG, "QR content is blank or empty")
+            Toast.makeText(requireContext(), "QR code appears to be empty", Toast.LENGTH_LONG).show()
+            return
+        }
+
         try {
+            Log.d(TAG, "Attempting to parse ConnectionData from QR content")
+
+            // Check if it looks like JSON
+            if (!qrContent.trim().startsWith("{") || !qrContent.trim().endsWith("}")) {
+                Log.e(TAG, "QR content doesn't appear to be valid JSON format")
+                Toast.makeText(requireContext(), "Invalid QR format: Expected JSON data", Toast.LENGTH_LONG).show()
+                return
+            }
+
             val cd = ConnectionData(qrContent)
+            Log.d(TAG, "ConnectionData parsed successfully:")
+            Log.d(TAG, "   - Public Key: ${cd.publicKey}")
+            Log.d(TAG, "   - Name: ${cd.name}")
+            Log.d(TAG, "   - Amount: ${cd.amount}")
+            Log.d(TAG, "   - Type: ${cd.type}")
+
+            // Validate required fields
+            if (cd.publicKey.isNullOrBlank()) {
+                Log.e(TAG, "Public key is missing from QR data")
+                Toast.makeText(requireContext(), "Invalid QR: Public key missing", Toast.LENGTH_LONG).show()
+                return
+            }
+
+            if (cd.amount <= 0) {
+                Log.e(TAG, "Invalid amount in QR data: ${cd.amount}")
+                Toast.makeText(requireContext(), "Invalid QR: Amount must be positive", Toast.LENGTH_LONG).show()
+                return
+            }
+
             val updatedArgs = currentTransactionArgs.copy(
                 publicKey = cd.publicKey,
                 name = cd.name,
                 amount = cd.amount
             )
+            Log.d(TAG, "Updated transaction args created, calling finalizeTransaction")
             finalizeTransaction(updatedArgs)
+
         } catch (e: JSONException) {
+            Log.e(TAG, "JSON parsing failed for QR content", e)
+            Log.e(TAG, "   Raw content was: $qrContent")
             Toast.makeText(
                 requireContext(),
-                "Scan failed (invalid QR)",
+                "Scan failed (invalid JSON): ${e.message}",
+                Toast.LENGTH_LONG
+            ).show()
+        } catch (e: IllegalArgumentException) {
+            Log.e(TAG, "Invalid argument in QR parsing", e)
+            Log.e(TAG, "   QR content: $qrContent")
+            Toast.makeText(
+                requireContext(),
+                "Invalid QR data format: ${e.message}",
+                Toast.LENGTH_LONG
+            ).show()
+        } catch (e: Exception) {
+            Log.e(TAG, "Unexpected error in onQrScanned", e)
+            Log.e(TAG, "   QR content: $qrContent")
+            Toast.makeText(
+                requireContext(),
+                "QR processing error: ${e.message}",
                 Toast.LENGTH_LONG
             ).show()
         }
     }
 
-    private fun finalizeTransaction(args: TransactionArgs) {
+   private fun finalizeTransaction(args: TransactionArgs) {
         val amount = args.amount
         val publicKey = args.publicKey
         val recipientKeyBytes = publicKey?.hexToBytes()

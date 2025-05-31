@@ -4,14 +4,10 @@ import android.os.Bundle
 import android.view.View
 import android.widget.LinearLayout
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.LiveData
 import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.liveData
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.mattskala.itemadapter.Item
 import com.mattskala.itemadapter.ItemAdapter
-import kotlinx.coroutines.delay
 import nl.tudelft.trustchain.common.util.viewBinding
 import nl.tudelft.trustchain.eurotoken.R
 import nl.tudelft.trustchain.eurotoken.ui.EurotokenBaseFragment
@@ -28,22 +24,20 @@ class TrustScoresFragment : EurotokenBaseFragment(R.layout.fragment_trust_scores
 
     private val adapter = ItemAdapter()
 
-    private val items: LiveData<List<Item>> by lazy {
-        liveData { emit(listOf<Item>()) }
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         adapter.registerRenderer(TrustScoreItemRenderer())
+    }
 
+    override fun onResume() {
+        super.onResume()
+        
         lifecycleScope.launchWhenResumed {
             val items =
                 trustStore.getAllScores()
                     .map { trustScore: TrustScore -> TrustScoreItem(trustScore) }
             adapter.updateItems(items)
             adapter.notifyDataSetChanged()
-            delay(1000L)
         }
     }
 
@@ -61,9 +55,5 @@ class TrustScoresFragment : EurotokenBaseFragment(R.layout.fragment_trust_scores
                 LinearLayout.VERTICAL
             )
         )
-
-        items.observe(viewLifecycleOwner) {
-            adapter.updateItems(it)
-        }
     }
 }

@@ -22,6 +22,7 @@ import nl.tudelft.ipv8.util.toHex
 import org.json.JSONObject
 import nl.tudelft.trustchain.common.eurotoken.TransactionRepository
 import nl.tudelft.trustchain.common.contacts.ContactStore
+import java.nio.ByteBuffer
 
 class RequestMoneyFragment : EurotokenBaseFragment(R.layout.fragment_request_money) {
     private var _binding: FragmentRequestMoneyBinding? = null
@@ -55,7 +56,7 @@ class RequestMoneyFragment : EurotokenBaseFragment(R.layout.fragment_request_mon
         }
 
         // similar to transferfragment for qr
-        val myPublicKey = getTrustChainCommunity().myPeer.publicKey.keyToHash().toHex()
+        val myPublicKey = getTrustChainCommunity().myPeer.publicKey.keyToBin().toHex()
         val myName = ContactStore.getInstance(requireContext()).getContactFromPublicKey(getTrustChainCommunity().myPeer.publicKey)?.name ?: ""
         val amount = transactionArgs.amount
         val jsonData = JSONObject().apply {
@@ -69,9 +70,9 @@ class RequestMoneyFragment : EurotokenBaseFragment(R.layout.fragment_request_mon
         if (transactionArgs.channel == Channel.QR) {
             binding.txtIntro.text = "Have the sending party scan this QR code:"
             binding.btnNfcRequest.visibility = View.VISIBLE
-            binding.qr.visibility = View.GONE
-            binding.txtRequestData.visibility = View.GONE
-            binding.txtRequest.visibility = View.GONE
+            binding.qr.visibility = View.VISIBLE
+            binding.txtRequestData.visibility = View.VISIBLE
+            binding.txtRequest.visibility = View.VISIBLE
             lifecycleScope.launch {
                 val bitmap = withContext(Dispatchers.Default) { qrCodeUtils.createQR(jsonData) }
                 binding.qr.setImageBitmap(bitmap)
@@ -83,9 +84,12 @@ class RequestMoneyFragment : EurotokenBaseFragment(R.layout.fragment_request_mon
             binding.txtRequestData.visibility = View.GONE
             binding.qr.visibility = View.GONE
             binding.btnNfcRequest.visibility = View.GONE
-            val payloadBytes = jsonData.toByteArray(Charsets.UTF_8)
-            EuroTokenHCEService.setPayload(payloadBytes)
-            Log.d(TAG, "NFC HCE Payload set for request: $jsonData")
+
+            // 4byts for length
+            val headerByes = ByteBuffer.allocate(4).putInt(jsonData.length).array()
+            val hcePayload = headerByes + jsonData.toByteArray(Charsets.UTF_8)
+            EuroTokenHCEService.setPayload(hcePayload)
+            Log.d(TAG, "NFC HCE Payload set for request: $jsonData, size: ${hcePayload.size}")
             Toast.makeText(requireContext(), "NFC active. Ready to be tapped by sender.", Toast.LENGTH_SHORT).show()
         }
 
