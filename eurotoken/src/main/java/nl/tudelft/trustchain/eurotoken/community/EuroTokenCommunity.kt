@@ -17,6 +17,7 @@ import nl.tudelft.trustchain.common.eurotoken.TransactionRepository
 import nl.tudelft.trustchain.eurotoken.EuroTokenMainActivity.EurotokenPreferences.DEMO_MODE_ENABLED
 import nl.tudelft.trustchain.eurotoken.EuroTokenMainActivity.EurotokenPreferences.EUROTOKEN_SHARED_PREF_NAME
 import nl.tudelft.trustchain.eurotoken.db.TrustStore
+import nl.tudelft.trustchain.eurotoken.db.VouchStore
 import nl.tudelft.trustchain.eurotoken.ui.settings.DefaultGateway
 
 class EuroTokenCommunity(
@@ -34,6 +35,11 @@ class EuroTokenCommunity(
     private var myTrustStore: TrustStore
 
     /**
+     * The [VouchStore] used to fetch and update vouch information from peers.
+     */
+    private var myVouchStore: VouchStore
+
+    /**
      * The context used to access the shared preferences.
      */
     private var myContext: Context
@@ -41,11 +47,13 @@ class EuroTokenCommunity(
     init {
         messageHandlers[MessageId.ROLLBACK_REQUEST] = ::onRollbackRequestPacket
         messageHandlers[MessageId.ATTACHMENT] = ::onLastAddressPacket
+        messageHandlers[MessageId.VOUCH_DATA] = ::onVouchDataPacket
         if (store.getPreferred().isEmpty()) {
             DefaultGateway.addGateway(store)
         }
 
         myTrustStore = trustStore
+        myVouchStore = VouchStore.getInstance(context)
         myContext = context
     }
 
@@ -127,6 +135,7 @@ class EuroTokenCommunity(
         const val GATEWAY_CONNECT = 1
         const val ROLLBACK_REQUEST = 1
         const val ATTACHMENT = 4
+        const val VOUCH_DATA = 5
     }
 
     class Factory(
@@ -219,11 +228,118 @@ class EuroTokenCommunity(
     }
 
     /**
+     * Called upon receiving MessageId.VOUCH_DATA packet.
+     * Payload consists of vouch information from the sender.
+     * This function parses the packet and updates the local vouch store with the received data.
+     * Format is: '<voucher_key>:<vouchee_key>:<amount>:<until>, ...' where keys are hex-encoded.
+     * @param packet : the corresponding packet that contains the vouch payload.
+     */
+    private fun onVouchDataPacket(packet: Packet) {
+        val (_, payload) =
+            packet.getDecryptedAuthPayload(
+                VouchPayload.Deserializer,
+                myPeer.key as PrivateKey
+            )
+
+        val vouchData = String(payload.data)
+        if (vouchData.isNotEmpty()) {
+            val vouchEntries = vouchData.split(",")
+            for (entry in vouchEntries) {
+                val parts = entry.split(":")
+                if (parts.size >= 3) {
+                    try {
+                        val voucherKey = parts[0].hexToBytes()
+                        val voucheeKey = parts[1].hexToBytes()
+                        val amount = parts[2].toDouble()
+                        val until = if (parts.size > 3 && parts[3].isNotEmpty()) parts[3].toLong() else null
+                        
+                        // Only update if we don't have this vouch or if received data is newer
+                        val existingVouch = myVouchStore.getVouch(voucherKey, voucheeKey)
+                        if (existingVouch == null) {
+                            myVouchStore.setVouch(voucherKey, voucheeKey, amount, until)
+                        }
+                    } catch (e: Exception) {
+                        // Skip malformed vouch entries
+                        continue
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Called after the user has finished a transaction with the other party.
+     * Sends vouch information to the peer to keep vouch data synchronized across the network.
+     * When DEMO mode is enabled, it generates sample vouch data instead.
+     * @param peer : the peer to send the vouch data to.
+     * @param maxEntries : the maximum number of vouch entries to send.
+     */
+    fun sendVouchData(
+        peer: Peer,
+        maxEntries: Int = 25
+    ) {
+        val pref = myContext.getSharedPreferences(EUROTOKEN_SHARED_PREF_NAME, Context.MODE_PRIVATE)
+        val demoModeEnabled = pref.getBoolean(DEMO_MODE_ENABLED, false)
+
+        val vouchEntries: ArrayList<String> = ArrayList()
+        
+        if (demoModeEnabled) {
+            // Generate sample vouch data for demo mode
+            val random = Random(System.currentTimeMillis())
+            for (i in 0 until maxEntries) {
+                val voucherKey = generatePublicKey(1000L + i)
+                val voucheeKey = generatePublicKey(2000L + i)
+                val amount = (random.nextDouble() * 100).toString()
+                val until = if (random.nextBoolean()) (System.currentTimeMillis() + 86400000L).toString() else ""
+                vouchEntries.add("$voucherKey:$voucheeKey:$amount:$until")
+            }
+        } else {
+            // Get actual vouch data from the store
+            val myKey = myPeer.publicKey.keyToBin()
+            val myVouches = myVouchStore.getVouchesByVoucher(myKey)
+            
+            // Convert vouch entries to string format
+            for (vouch in myVouches.take(maxEntries)) {
+                val voucherKey = myKey.toHex()
+                val voucheeKey = vouch.pubKey.toHex()
+                val amount = vouch.vouchAmount.toString()
+                val until = vouch.vouchUntil?.toString() ?: ""
+                vouchEntries.add("$voucherKey:$voucheeKey:$amount:$until")
+            }
+        }
+
+        if (vouchEntries.isNotEmpty()) {
+            val payload = VouchPayload(EVAId.EVA_VOUCH_DATA, vouchEntries.joinToString(separator = ",").toByteArray())
+
+            val packet =
+                serializePacket(
+                    MessageId.VOUCH_DATA,
+                    payload,
+                    encrypt = true,
+                    recipient = peer
+                )
+
+            // Send the vouch data to the peer using EVA
+            if (evaProtocolEnabled) {
+                evaSendBinary(
+                    peer,
+                    EVAId.EVA_VOUCH_DATA,
+                    payload.id,
+                    packet
+                )
+            } else {
+                send(peer, packet)
+            }
+        }
+    }
+
+    /**
      * Every community initializes a different version of the EVA protocol (if enabled).
      * To distinguish the incoming packets/requests an ID must be used to hold/let through the
      * EVA related packets.
      */
     object EVAId {
         const val EVA_LAST_ADDRESSES = "eva_last_addresses"
+        const val EVA_VOUCH_DATA = "eva_vouch_data"
     }
 }

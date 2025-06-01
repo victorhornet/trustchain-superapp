@@ -273,6 +273,8 @@ class TransferFragment : EurotokenBaseFragment(R.layout.fragment_transfer_euro) 
                         }
                         if (peer != null && euroTokenCommunity != null) {
                             euroTokenCommunity.sendAddressesOfLastTransactions(peer)
+                            // Send vouch data to keep network synchronized
+                            euroTokenCommunity.sendVouchData(peer)
                         }
                     } catch (e: Exception) {
                         UsageLogger.logTransactionError(transactionID, e.toString())
