@@ -24,27 +24,32 @@ import java.util.Locale
 
 class VouchManagementFragment : EurotokenBaseFragment(R.layout.fragment_vouch_management) {
     private val binding by viewBinding(FragmentVouchManagementBinding::bind)
-    
-    private val viewModel: VouchManagementViewModel by viewModels { 
-        VouchManagementViewModelFactory(vouchStore, transactionRepository) 
+
+    private val viewModel: VouchManagementViewModel by viewModels {
+        VouchManagementViewModelFactory(vouchStore, transactionRepository)
     }
     private val adapter = ItemAdapter()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+
         // Initialize vouch table (already done in base class, but ensure it's called)
         vouchStore.createVouchTable()
-        
-        adapter.registerRenderer(VouchUserItemRenderer { trustScore ->
-            findNavController().navigate(
-                R.id.action_vouchManagementFragment_to_vouchDetailFragment,
-                bundleOf("pubKey" to trustScore.pubKey.toHex())
-            )
-        })
+
+        adapter.registerRenderer(
+            VouchUserItemRenderer { trustScore ->
+                findNavController().navigate(
+                    R.id.action_vouchManagementFragment_to_vouchDetailFragment,
+                    bundleOf("pubKey" to trustScore.pubKey.toHex())
+                )
+            }
+        )
     }
 
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+    override fun onViewCreated(
+        view: View,
+        savedInstanceState: Bundle?
+    ) {
         super.onViewCreated(view, savedInstanceState)
         binding.vouchRecyclerView.adapter = adapter
         binding.vouchRecyclerView.layoutManager = LinearLayoutManager(context)
@@ -74,9 +79,10 @@ class VouchManagementFragment : EurotokenBaseFragment(R.layout.fragment_vouch_ma
         lifecycleScope.launch {
             val trustScores = trustStore.getAllScores()
             viewModel.vouches.observe(viewLifecycleOwner) { vouches ->
-                val items = trustScores.map {
-                    VouchUserItem(it, vouches[it.pubKey.toHex()])
-                }
+                val items =
+                    trustScores.map {
+                        VouchUserItem(it, vouches[it.pubKey.toHex()])
+                    }
                 adapter.updateItems(items)
             }
         }

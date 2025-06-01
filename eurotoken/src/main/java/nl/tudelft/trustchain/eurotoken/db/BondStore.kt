@@ -2,10 +2,11 @@ package nl.tudelft.trustchain.eurotoken.db
 
 import android.content.Context
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
+import nl.tudelft.common.sqldelight.Database
 import nl.tudelft.eurotoken.sqldelight.Database
-import nl.tudelft.trustchain.eurotoken.entity.Bond
 import nl.tudelft.trustchain.eurotoken.entity.BondStatus
 import java.util.Date
+import nl.tudelft.trustchain.eurotoken.entity.Bond
 
 /**
  * BondStore manages bond information between users.
@@ -29,7 +30,7 @@ class BondStore(
         expired_at: Long,
         transaction_id: String,
         status: String,
-        purpose: String
+        updated_at: Long
         ->
         Bond(
             id = id,
@@ -40,7 +41,7 @@ class BondStore(
             expiredAt = Date(expired_at),
             transactionId = transaction_id,
             status = BondStatus.valueOf(status),
-            purpose = purpose
+            purpose = ""
         )
     }
 
@@ -103,12 +104,12 @@ class BondStore(
      * @param userKey The public key of the user
      * @return List of active bonds
      */
-    fun getActiveBonds(userKey: ByteArray): List<Bond> =
+    fun getActiveBonds(userKey: ByteArray): List<Bonds> =
         database.dbBondQueries
             .getActiveBonds(
                 userKey,
                 BondStatus.ACTIVE.name,
-                System.currentTimeMillis(),
+                System.currentTimeMillis().toString(),
                 bondMapper
             ).executeAsList()
 

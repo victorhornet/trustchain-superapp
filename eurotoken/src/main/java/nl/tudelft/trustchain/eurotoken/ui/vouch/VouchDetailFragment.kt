@@ -18,12 +18,15 @@ import java.util.Locale
 
 class VouchDetailFragment : EurotokenBaseFragment(R.layout.fragment_vouch_detail) {
     private val binding by viewBinding(FragmentVouchDetailBinding::bind)
-    
-    private val viewModel: VouchManagementViewModel by activityViewModels { 
-        VouchManagementViewModelFactory(vouchStore, transactionRepository) 
+
+    private val viewModel: VouchManagementViewModel by activityViewModels {
+        VouchManagementViewModelFactory(vouchStore, transactionRepository)
     }
 
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+    override fun onViewCreated(
+        view: View,
+        savedInstanceState: Bundle?
+    ) {
         super.onViewCreated(view, savedInstanceState)
         val pubKeyHex = requireArguments().getString("pubKey")!!
         val trustScores = trustStore.getAllScores()

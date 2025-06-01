@@ -3,11 +3,11 @@ CREATE TABLE IF NOT EXISTS vouches (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     voucher_public_key BLOB NOT NULL,
     vouchee_public_key BLOB NOT NULL,
-    vouch_amount REAL NOT NULL,
+    vouch_amount DOUBLE NOT NULL,
     vouch_until INTEGER,
+    bond_id TEXT NOT NULL,
     created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL,
-    UNIQUE(voucher_public_key, vouchee_public_key)
+    updated_at INTEGER NOT NULL
 );
 
 -- Get all vouches made by a specific user (voucher)
@@ -24,8 +24,15 @@ SELECT * FROM vouches WHERE voucher_public_key = ? AND vouchee_public_key = ?;
 
 -- Insert or update a vouch
 insertOrUpdateVouch:
-INSERT OR REPLACE INTO vouches (voucher_public_key, vouchee_public_key, vouch_amount, vouch_until, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?);
+ INSERT OR REPLACE INTO vouches (
+     voucher_public_key,
+     vouchee_public_key,
+     vouch_amount,
+     vouch_until,
+     bond_id,
+     created_at,
+     updated_at
+ ) VALUES (?, ?, ?, ?, ?, ?, ?);
 
 -- Delete a vouch
 deleteVouch:

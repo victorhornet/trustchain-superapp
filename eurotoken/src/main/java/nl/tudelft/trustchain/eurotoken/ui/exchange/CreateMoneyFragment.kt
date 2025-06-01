@@ -41,7 +41,10 @@ class CreateMoneyFragment : EurotokenBaseFragment(R.layout.fragment_create_money
             ?: throw java.lang.IllegalStateException("EuroTokenCommunity is not configured")
     }
 
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+    override fun onViewCreated(
+        view: View,
+        savedInstanceState: Bundle?
+    ) {
         super.onViewCreated(view, savedInstanceState)
 
         val publicKey = requireArguments().getString(ARG_PUBLIC_KEY)!!

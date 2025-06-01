@@ -80,7 +80,7 @@ repositories {
 
 dependencies {
     implementation project(':ipv8-android')
-
+    implementation(project(":eurotoken"))
     implementation 'com.google.guava:guava:30.0-android'
 
     // AndroidX

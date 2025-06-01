@@ -1,12 +1,15 @@
+createBondTable:
 CREATE TABLE IF NOT EXISTS bonds (
     id TEXT NOT NULL PRIMARY KEY,
-    amount INTEGER NOT NULL,
+    amount DOUBLE NOT NULL,
     lender_public_key BLOB NOT NULL,
     receiver_public_key BLOB NOT NULL,
     created_at INTEGER NOT NULL,
     expired_at INTEGER NOT NULL,
     transaction_id TEXT NOT NULL,
     status TEXT NOT NULL,
+    purpose TEXT NOT NULL,
+    is_one_shot INTEGER NOT NULL, -- 0 = false, 1 = true
     updated_at INTEGER NOT NULL
 );
 
@@ -25,8 +28,10 @@ INSERT OR REPLACE INTO bonds (
     expired_at,
     transaction_id,
     status,
+    purpose,
+    is_one_shot,
     updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 getBond:
 SELECT *
@@ -71,12 +76,14 @@ WHERE id = ?;
 createBondTable:
 CREATE TABLE IF NOT EXISTS bonds (
     id TEXT NOT NULL PRIMARY KEY,
-    amount INTEGER NOT NULL,
+    amount DOUBLE NOT NULL,
     lender_public_key BLOB NOT NULL,
     receiver_public_key BLOB NOT NULL,
     created_at INTEGER NOT NULL,
     expired_at INTEGER NOT NULL,
     transaction_id TEXT NOT NULL,
     status TEXT NOT NULL,
+    purpose TEXT NOT NULL,
+    is_one_shot INTEGER NOT NULL,
     updated_at INTEGER NOT NULL
-); 
+);

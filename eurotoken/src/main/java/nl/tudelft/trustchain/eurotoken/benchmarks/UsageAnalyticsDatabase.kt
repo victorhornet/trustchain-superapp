@@ -19,7 +19,6 @@ import androidx.room.RoomDatabase
     exportSchema = false
 )
 abstract class UsageAnalyticsDatabase : RoomDatabase() {
-
     abstract fun usageEventsDao(): UsageEventsDao
 
     companion object {
@@ -28,13 +27,14 @@ abstract class UsageAnalyticsDatabase : RoomDatabase() {
 
         fun getInstance(context: Context): UsageAnalyticsDatabase {
             return INSTANCE ?: synchronized(this) {
-                val instance = Room.databaseBuilder(
-                    context.applicationContext,
-                    UsageAnalyticsDatabase::class.java,
-                    "eurotoken_usage_analytics_db"
-                )
-                    // Add migrations here if you change schema later
-                    .build()
+                val instance =
+                    Room.databaseBuilder(
+                        context.applicationContext,
+                        UsageAnalyticsDatabase::class.java,
+                        "eurotoken_usage_analytics_db"
+                    )
+                        // Add migrations here if you change schema later
+                        .build()
                 INSTANCE = instance
                 instance
             }

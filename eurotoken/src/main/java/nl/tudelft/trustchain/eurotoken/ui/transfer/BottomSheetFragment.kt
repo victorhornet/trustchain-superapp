@@ -23,9 +23,11 @@ class TransportChoiceSheet : BottomSheetDialogFragment() {
 
     companion object {
         const val ARG_TRANSACTION_ARGS_RECEIVED = "transaction_args"
-        fun newInstance(args: TransactionArgs) = TransportChoiceSheet().apply {
-            arguments = bundleOf(ARG_TRANSACTION_ARGS_RECEIVED to args)
-        }
+
+        fun newInstance(args: TransactionArgs) =
+            TransportChoiceSheet().apply {
+                arguments = bundleOf(ARG_TRANSACTION_ARGS_RECEIVED to args)
+            }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -36,12 +38,18 @@ class TransportChoiceSheet : BottomSheetDialogFragment() {
             ?: throw IllegalStateException("TransactionArgs missing")
     }
 
-    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?) =
-        FragmentTransportChoiceBinding.inflate(inflater, container, false)
-            .also { _binding = it }
-            .root
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ) = FragmentTransportChoiceBinding.inflate(inflater, container, false)
+        .also { _binding = it }
+        .root
 
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+    override fun onViewCreated(
+        view: View,
+        savedInstanceState: Bundle?
+    ) {
         super.onViewCreated(view, savedInstanceState)
 
         when (originalTransactionArgs.mode) {
@@ -68,14 +76,16 @@ class TransportChoiceSheet : BottomSheetDialogFragment() {
     }
 
     private fun navigateWithSelectedChannel(selectedChannel: Channel) {
-        val argsForNextFragment = originalTransactionArgs.copy(
-            channel = selectedChannel
-        )
+        val argsForNextFragment =
+            originalTransactionArgs.copy(
+                channel = selectedChannel
+            )
 
-        val destinationId = when (originalTransactionArgs.mode) {
-            Mode.SEND -> R.id.sendMoneyFragment
-            Mode.RECEIVE -> R.id.requestMoneyFragment
-        }
+        val destinationId =
+            when (originalTransactionArgs.mode) {
+                Mode.SEND -> R.id.sendMoneyFragment
+                Mode.RECEIVE -> R.id.requestMoneyFragment
+            }
 
         val navigationArgs = bundleOf("transaction_args" to argsForNextFragment)
 

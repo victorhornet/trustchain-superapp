@@ -43,7 +43,10 @@ class RequestMoneyFragment : EurotokenBaseFragment(R.layout.fragment_request_mon
         return binding.root
     }
 
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+    override fun onViewCreated(
+        view: View,
+        savedInstanceState: Bundle?
+    ) {
         super.onViewCreated(view, savedInstanceState)
 
         val transactionArgs = navArgs.transactionArgs
@@ -56,14 +59,18 @@ class RequestMoneyFragment : EurotokenBaseFragment(R.layout.fragment_request_mon
 
         // similar to transferfragment for qr
         val myPublicKey = getTrustChainCommunity().myPeer.publicKey.keyToHash().toHex()
-        val myName = ContactStore.getInstance(requireContext()).getContactFromPublicKey(getTrustChainCommunity().myPeer.publicKey)?.name ?: ""
+        val myName =
+            ContactStore.getInstance(
+                requireContext()
+            ).getContactFromPublicKey(getTrustChainCommunity().myPeer.publicKey)?.name ?: ""
         val amount = transactionArgs.amount
-        val jsonData = JSONObject().apply {
-            put("amount", amount as Any)
-            put("public_key", myPublicKey as Any)
-            put("name", myName)
-            put("type", "transfer_request")
-        }.toString()
+        val jsonData =
+            JSONObject().apply {
+                put("amount", amount as Any)
+                put("public_key", myPublicKey as Any)
+                put("name", myName)
+                put("type", "transfer_request")
+            }.toString()
 
         // now enable/disable NFC request button based on channel -> dynamic manner
         if (transactionArgs.channel == Channel.QR) {
@@ -95,7 +102,11 @@ class RequestMoneyFragment : EurotokenBaseFragment(R.layout.fragment_request_mon
             if (transactionArgs.channel == Channel.NFC) {
                 val payloadBytes = jsonData.toByteArray(Charsets.UTF_8)
                 EuroTokenHCEService.setPayload(payloadBytes)
-                Toast.makeText(requireContext(), "NFC Re-activated (Requesting ${TransactionRepository.prettyAmount(amount)})", Toast.LENGTH_LONG).show()
+                Toast.makeText(
+                    requireContext(),
+                    "NFC Re-activated (Requesting ${TransactionRepository.prettyAmount(amount)})",
+                    Toast.LENGTH_LONG
+                ).show()
             }
         }
         binding.btnContinue.setOnClickListener {

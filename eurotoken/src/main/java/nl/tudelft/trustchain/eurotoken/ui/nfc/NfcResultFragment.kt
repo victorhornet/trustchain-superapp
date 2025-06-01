@@ -7,16 +7,19 @@ import nl.tudelft.trustchain.eurotoken.R
 import nl.tudelft.trustchain.eurotoken.databinding.FragmentNfcResultBinding
 
 class NfcResultFragment : Fragment(R.layout.fragment_nfc_result) {
-
     private var _binding: FragmentNfcResultBinding? = null
     private val binding get() = _binding!!
 
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+    override fun onViewCreated(
+        view: View,
+        savedInstanceState: Bundle?
+    ) {
         super.onViewCreated(view, savedInstanceState)
         _binding = FragmentNfcResultBinding.bind(view)
 
-        val receivedData = requireArguments().getString("nfcData")
-            ?: "No data received"
+        val receivedData =
+            requireArguments().getString("nfcData")
+                ?: "No data received"
         binding.tvNfcDataContent.text = receivedData
     }
 

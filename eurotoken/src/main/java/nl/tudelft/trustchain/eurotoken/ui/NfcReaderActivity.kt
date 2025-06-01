@@ -28,7 +28,6 @@ import java.util.*
 // on other device -> uses NFC reader mode
 // apdu exchange
 class NfcReaderActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
-
     private var nfcAdapter: NfcAdapter? = null
     private lateinit var binding: ActivityNfcReaderBinding
 
@@ -54,22 +53,24 @@ class NfcReaderActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
         // select app via AID
         // follows ISO/IEC 7816-4 (AID) and ISO/IEC 7816-3 (SELECT)
         // CLA | INS | P1 | P2 | Lc | Data
-        val CMD_SELECT_AID: ByteArray = byteArrayOf(
-            0x00.toByte(),
-            0xA4.toByte(),
-            0x04.toByte(),
-            0x00.toByte(),
-            HCE_GOAL_AID.length.div(2).toByte() // Lc field = AID length
-        ) + HCE_GOAL_AID.hexToBytes()
+        val CMD_SELECT_AID: ByteArray =
+            byteArrayOf(
+                0x00.toByte(),
+                0xA4.toByte(),
+                0x04.toByte(),
+                0x00.toByte(),
+                HCE_GOAL_AID.length.div(2).toByte() // Lc field = AID length
+            ) + HCE_GOAL_AID.hexToBytes()
 
         // Command to request the data after successful selection
-        val CMD_READ_DATA: ByteArray = byteArrayOf(
-            0x00.toByte(),
-            0xB0.toByte(),
-            0x00.toByte(),
-            0x00.toByte(),
-            0x00.toByte()
-        )
+        val CMD_READ_DATA: ByteArray =
+            byteArrayOf(
+                0x00.toByte(),
+                0xB0.toByte(),
+                0x00.toByte(),
+                0x00.toByte(),
+                0x00.toByte()
+            )
 
         // Status words
         private val SW_OK = byteArrayOf(0x90.toByte(), 0x00.toByte()) // success
@@ -133,6 +134,7 @@ class NfcReaderActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
             // Maybe finish with error or just wait for a compatible tag
         }
     }
+
     private suspend fun commWithTag(isoDep: IsoDep) {
         // only one worker for interactions --> app needds to stay smooth
         // its necessary to launch a dispatchers.io thread
@@ -197,10 +199,11 @@ class NfcReaderActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
                 } else {
                     val statusString = readResult.getStatusString()
                     Log.e(TAG, "READ DATA failed. Status: $statusString")
-                    val error = when {
-                        Arrays.equals(readResult, SW_CONDITIONS_NOT_SATISFIED) -> NfcError.HCE_DATA_NOT_READY
-                        else -> NfcError.READ_FAILED
-                    }
+                    val error =
+                        when {
+                            Arrays.equals(readResult, SW_CONDITIONS_NOT_SATISFIED) -> NfcError.HCE_DATA_NOT_READY
+                            else -> NfcError.READ_FAILED
+                        }
                     runOnUiThread { updateStatus("Failed to read data. Status: $statusString") }
 //                    finishWithError(error)
                 }

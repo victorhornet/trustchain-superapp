@@ -12,7 +12,6 @@ class VouchManagementViewModelFactory(
     private val vouchStore: VouchStore,
     private val transactionRepository: TransactionRepository
 ) : ViewModelProvider.Factory {
-    
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(VouchManagementViewModel::class.java)) {
@@ -20,4 +19,4 @@ class VouchManagementViewModelFactory(
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }
-} 
+}

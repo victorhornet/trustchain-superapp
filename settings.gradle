@@ -12,6 +12,9 @@ project(':ipv8-jvm').projectDir = new File(settingsDir, 'kotlin-ipv8/ipv8-jvm')
 include 'demo-jvm'
 project(':demo-jvm').projectDir = new File(settingsDir, 'kotlin-ipv8/demo-jvm')
 
+include(":common", ":eurotoken")
+
+
 include ':app'
 include ':common'
 include ':common-bitcoin'

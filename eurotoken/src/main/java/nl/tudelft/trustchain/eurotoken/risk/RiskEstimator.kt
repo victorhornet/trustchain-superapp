@@ -3,12 +3,12 @@ package nl.tudelft.trustchain.eurotoken.risk
 import nl.tudelft.ipv8.attestation.trustchain.TrustChainBlock
 import nl.tudelft.trustchain.common.eurotoken.TransactionRepository
 import nl.tudelft.trustchain.eurotoken.db.TrustStore
-import nl.tudelft.trustchain.eurotoken.entity.Guarantor
+import nl.tudelft.trustchain.eurotoken.db.VouchStore
 
 class RiskEstimator(
+    private val vouchStore: VouchStore,
     private val trustStore: TrustStore,
     private val transactionRepository: TransactionRepository,
-    private val guarantorList: List<Guarantor>
 ) {
     /**
      * @param payerPubKey   who’s paying
@@ -27,9 +27,15 @@ class RiskEstimator(
         // How much payer can cover
         var expCoverage = payerTrust * minOf(amount, payerBalance)
         var coverageByGuarantor = 0L
+        val guarantorList = vouchStore.getGuarantorsForUser(payerBlock.publicKey, trustStore)
         // find how much can guarantors cover
-        for (g in guarantorList) {
-            coverageByGuarantor += g.trust * minOf(g.balance.toLong(), amount)
+        val now = System.currentTimeMillis()
+        val validGuarantors =
+            guarantorList.filter {
+                it.vouchUntil == null || it.vouchUntil > now
+            }
+        for (g in validGuarantors) {
+            coverageByGuarantor += g.trust * minOf(g.vouchAmount.toLong(), amount)
         }
         expCoverage += coverageByGuarantor
         val shortfall = maxOf(0.0, amount - expCoverage)

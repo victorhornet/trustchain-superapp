@@ -28,19 +28,21 @@ class EuroTokenHCEService : HostApduService() {
 
         // Custom APDU command
         // (READ APDU: 00 B0 00 00 00 (CLA=00, INS=B0, P1=00, P2=00, Le=00 - Read max available ->256Bytes))
-        val CMD_SELECT_AID = byteArrayOf(
-            0x00.toByte(), // CLA -> iso7816-4 command class
-            0xA4.toByte(), // INS -> SELECT
-            0x04.toByte(), // P1  -> select by DF name
-            0x00.toByte(), // P2  -> first or only occurrence
-        )
-        val CMD_READ_DATA = byteArrayOf(
-            0x00.toByte(), // CLA
-            0xB0.toByte(), // INS -> READ BINARY
-            0x00.toByte(), // P1 = 00
-            0x00.toByte(), // P2 = 00
-            0x00.toByte() // Le = 00 (Request maximum available data)
-        )
+        val CMD_SELECT_AID =
+            byteArrayOf(
+                0x00.toByte(), // CLA -> iso7816-4 command class
+                0xA4.toByte(), // INS -> SELECT
+                0x04.toByte(), // P1  -> select by DF name
+                0x00.toByte(), // P2  -> first or only occurrence
+            )
+        val CMD_READ_DATA =
+            byteArrayOf(
+                0x00.toByte(), // CLA
+                0xB0.toByte(), // INS -> READ BINARY
+                0x00.toByte(), // P1 = 00
+                0x00.toByte(), // P2 = 00
+                0x00.toByte() // Le = 00 (Request maximum available data)
+            )
 
         // didnt work without
         // so now shared mutable state
@@ -92,7 +94,10 @@ class EuroTokenHCEService : HostApduService() {
 
     // android sys calls this when apdu command is received from the reader
     // after aid has been selected
-    override fun processCommandApdu(commandApdu: ByteArray?, extras: Bundle?): ByteArray? {
+    override fun processCommandApdu(
+        commandApdu: ByteArray?,
+        extras: Bundle?
+    ): ByteArray? {
         if (commandApdu == null) {
             return SW_UNKNOWN_ERROR
         }

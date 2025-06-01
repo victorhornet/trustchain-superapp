@@ -5,14 +5,15 @@ import java.util.UUID
 
 data class Bond(
     val id: String = UUID.randomUUID().toString(),
-    val amount: Long,
+    val amount: Double,
     val publicKeyLender: ByteArray,
     val publicKeyReceiver: ByteArray,
     val createdAt: Date,
     val expiredAt: Date,
     val transactionId: String,
     val status: BondStatus = BondStatus.ACTIVE,
-    val purpose: String
+    val purpose: String,
+    val isOneShot: Boolean
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -29,6 +30,7 @@ data class Bond(
         if (transactionId != other.transactionId) return false
         if (status != other.status) return false
         if (purpose != other.purpose) return false
+        if (isOneShot != other.isOneShot) return false
 
         return true
     }
@@ -43,8 +45,7 @@ data class Bond(
         result = 31 * result + transactionId.hashCode()
         result = 31 * result + status.hashCode()
         result = 31 * result + purpose.hashCode()
+        result = 31 * result + isOneShot.hashCode()
         return result
     }
 }
-
-enum class BondStatus { ACTIVE, RELEASED, FORFEITED }

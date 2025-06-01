@@ -65,7 +65,10 @@ interface UsageEventsDao {
     suspend fun getTransferDoneEvent(transferId: String): TransferDoneEvent?
 
     @Query("SELECT * FROM transfer_start_events WHERE transactionId = :transactionId AND transferId = :transferId")
-    suspend fun getTransferStartEvent(transactionId: String, transferId: String): TransferStartEvent?
+    suspend fun getTransferStartEvent(
+        transactionId: String,
+        transferId: String
+    ): TransferStartEvent?
 
     @Query("SELECT * FROM transfer_start_events WHERE transferId = :transferId")
     suspend fun getTransferStartEventByTransferId(transferId: String): TransferStartEvent?

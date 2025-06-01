@@ -125,7 +125,10 @@ class TransferFragment : EurotokenBaseFragment(R.layout.fragment_transfer_euro) 
                     .addContact(ownKey, newName)
                 if (ownContact?.name != null) {
                     binding.missingNameLayout.visibility = View.GONE
-                    binding.txtOwnName.text = "Your balance (" + ContactStore.getInstance(requireContext()).getContactFromPublicKey(ownKey)?.name + ")"
+                    binding.txtOwnName.text = "Your balance (" +
+                        ContactStore.getInstance(
+                            requireContext()
+                        ).getContactFromPublicKey(ownKey)?.name + ")"
                 }
                 val inputMethodManager =
                     requireContext().getSystemService(Activity.INPUT_METHOD_SERVICE) as InputMethodManager
@@ -152,23 +155,28 @@ class TransferFragment : EurotokenBaseFragment(R.layout.fragment_transfer_euro) 
             }
 
             val myPublicKey = getTrustChainCommunity().myPeer.publicKey.keyToHash().toHex()
-            val myName = ContactStore.getInstance(requireContext()).getContactFromPublicKey(getTrustChainCommunity().myPeer.publicKey)?.name ?: ""
+            val myName =
+                ContactStore.getInstance(
+                    requireContext()
+                ).getContactFromPublicKey(getTrustChainCommunity().myPeer.publicKey)?.name ?: ""
 
-            val qrJsonData = JSONObject().apply {
-                put("type", "request")
-                put("amount", amount)
-                put("public_key", myPublicKey)
-                put("name", myName)
-            }.toString()
+            val qrJsonData =
+                JSONObject().apply {
+                    put("type", "request")
+                    put("amount", amount)
+                    put("public_key", myPublicKey)
+                    put("name", myName)
+                }.toString()
 
-            val transactionArgs = TransactionArgs(
-                mode = Mode.RECEIVE,
-                channel = Channel.QR,
-                amount = amount,
-                publicKey = myPublicKey,
-                name = myName,
-                qrData = qrJsonData
-            )
+            val transactionArgs =
+                TransactionArgs(
+                    mode = Mode.RECEIVE,
+                    channel = Channel.QR,
+                    amount = amount,
+                    publicKey = myPublicKey,
+                    name = myName,
+                    qrData = qrJsonData
+                )
 
             val bundle = bundleOf(TransportChoiceSheet.ARG_TRANSACTION_ARGS_RECEIVED to transactionArgs)
             val transportChoiceSheet = TransportChoiceSheet()
@@ -184,11 +192,12 @@ class TransferFragment : EurotokenBaseFragment(R.layout.fragment_transfer_euro) 
                 return@setOnClickListener
             }
 
-            val transactionArgs = TransactionArgs(
-                mode = Mode.SEND,
-                channel = Channel.QR,
-                amount = amount
-            )
+            val transactionArgs =
+                TransactionArgs(
+                    mode = Mode.SEND,
+                    channel = Channel.QR,
+                    amount = amount
+                )
 
             // todo: bottomsheet instaed?
             val bundle = bundleOf(TransportChoiceSheet.ARG_TRANSACTION_ARGS_RECEIVED to transactionArgs)
@@ -215,7 +224,11 @@ class TransferFragment : EurotokenBaseFragment(R.layout.fragment_transfer_euro) 
         return null
     }
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+    override fun onActivityResult(
+        requestCode: Int,
+        resultCode: Int,
+        data: Intent?
+    ) {
         qrCodeUtils.parseActivityResult(requestCode, resultCode, data)?.let {
             try {
                 val connectionData = ConnectionData(it)
@@ -272,14 +285,15 @@ class TransferFragment : EurotokenBaseFragment(R.layout.fragment_transfer_euro) 
                             .show()
                     }
 
-                    val transactionArgs = TransactionArgs(
-                        mode = Mode.SEND,
-                        channel = Channel.QR,
-                        amount = connectionData.amount,
-                        publicKey = connectionData.publicKey,
-                        name = connectionData.name,
-                        qrData = null
-                    )
+                    val transactionArgs =
+                        TransactionArgs(
+                            mode = Mode.SEND,
+                            channel = Channel.QR,
+                            amount = connectionData.amount,
+                            publicKey = connectionData.publicKey,
+                            name = connectionData.name,
+                            qrData = null
+                        )
                     findNavController().navigate(
                         R.id.sendMoneyFragment,
                         bundleOf("transaction_args_received" to transactionArgs)

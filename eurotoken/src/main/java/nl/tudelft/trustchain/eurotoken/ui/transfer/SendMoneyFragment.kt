@@ -85,12 +85,13 @@ class SendMoneyFragment : EurotokenBaseFragment(R.layout.fragment_send_money) {
                     try {
                         val connData = ConnectionData(receivedData)
 
-                        val updatedTransactionArgs = originalTransactionArgs.copy(
-                            publicKey = connData.publicKey, // check hex-> error
-                            name = connData.name,
-                            amount = currentTransactionArgs.amount,
-                            channel = Channel.NFC
-                        )
+                        val updatedTransactionArgs =
+                            originalTransactionArgs.copy(
+                                publicKey = connData.publicKey, // check hex-> error
+                                name = connData.name,
+                                amount = currentTransactionArgs.amount,
+                                channel = Channel.NFC
+                            )
                         // finalizeTransaction(updatedTransactionArgs)
                         binding.txtContactName.text = connData.name ?: "Unknown (NFC)"
                         binding.txtContactPublicKey.text = connData.publicKey ?: "No Public Key (NFC)"
@@ -131,7 +132,10 @@ class SendMoneyFragment : EurotokenBaseFragment(R.layout.fragment_send_money) {
             }
     }
 
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+    override fun onViewCreated(
+        view: View,
+        savedInstanceState: Bundle?
+    ) {
         super.onViewCreated(view, savedInstanceState)
         val binding = FragmentSendMoneyBinding.bind(view)
 
@@ -202,9 +206,10 @@ class SendMoneyFragment : EurotokenBaseFragment(R.layout.fragment_send_money) {
         binding.txtAmount.text = TransactionRepository.prettyAmount(amount)
         binding.txtContactPublicKey.text = publicKeyArg ?: ""
 
-        val trustScore = publicKeyArg
-            ?.hexToBytes()
-            ?.let { trustStore.getScore(it) }
+        val trustScore =
+            publicKeyArg
+                ?.hexToBytes()
+                ?.let { trustStore.getScore(it) }
         logger.info { "Trustscore: $trustScore" }
 
         if (trustScore != null) {
@@ -248,11 +253,12 @@ class SendMoneyFragment : EurotokenBaseFragment(R.layout.fragment_send_money) {
                 // no recipient ?-> show a scan button
                 binding.btnSend.apply {
                     visibility = View.VISIBLE
-                    text = if (pubKey.isNullOrEmpty()) {
-                        "Scan Recipient QR"
-                    } else {
-                        "Confirm Send (QR)"
-                    }
+                    text =
+                        if (pubKey.isNullOrEmpty()) {
+                            "Scan Recipient QR"
+                        } else {
+                            "Confirm Send (QR)"
+                        }
                     setOnClickListener {
                         if (pubKey.isNullOrEmpty()) {
                             qrCodeUtils.startQRScanner(this@SendMoneyFragment)
@@ -265,12 +271,13 @@ class SendMoneyFragment : EurotokenBaseFragment(R.layout.fragment_send_money) {
             Channel.NFC -> {
                 Log.d(TAG, "Entering NFC branch")
 
-                val jsonData = JSONObject().apply {
-                    put("amount", amount)
-                    put("public_key", ownPublicKey.toString())
-                    put("name", ContactStore.getInstance(requireContext()).getContactFromPublicKey(ownPublicKey)?.name ?: "")
-                    put("type", "transfer")
-                }.toString()
+                val jsonData =
+                    JSONObject().apply {
+                        put("amount", amount)
+                        put("public_key", ownPublicKey.toString())
+                        put("name", ContactStore.getInstance(requireContext()).getContactFromPublicKey(ownPublicKey)?.name ?: "")
+                        put("type", "transfer")
+                    }.toString()
 
                 val payloadBytes = jsonData.toByteArray(Charsets.UTF_8)
                 EuroTokenHCEService.setPayload(payloadBytes)
@@ -298,7 +305,11 @@ class SendMoneyFragment : EurotokenBaseFragment(R.layout.fragment_send_money) {
 
     // QR code still used old way
     @Deprecated("Using onActivityResult for QR scan…")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+    override fun onActivityResult(
+        requestCode: Int,
+        resultCode: Int,
+        data: Intent?
+    ) {
         super.onActivityResult(requestCode, resultCode, data)
         qrCodeUtils.parseActivityResult(requestCode, resultCode, data)
             ?.let { rawQr ->
@@ -309,11 +320,12 @@ class SendMoneyFragment : EurotokenBaseFragment(R.layout.fragment_send_money) {
     private fun onQrScanned(qrContent: String) {
         try {
             val cd = ConnectionData(qrContent)
-            val updatedArgs = currentTransactionArgs.copy(
-                publicKey = cd.publicKey,
-                name = cd.name,
-                amount = cd.amount
-            )
+            val updatedArgs =
+                currentTransactionArgs.copy(
+                    publicKey = cd.publicKey,
+                    name = cd.name,
+                    amount = cd.amount
+                )
             finalizeTransaction(updatedArgs)
         } catch (e: JSONException) {
             Toast.makeText(
@@ -351,7 +363,9 @@ class SendMoneyFragment : EurotokenBaseFragment(R.layout.fragment_send_money) {
                 if (peer != null) {
                     getEuroTokenCommunity().sendAddressesOfLastTransactions(peer)
 
-                    val nfcDataString = "Transaction successful: Sent ${TransactionRepository.prettyAmount(amount)} to ${binding.txtContactName.text}."
+                    val nfcDataString = "Transaction successful: Sent ${TransactionRepository.prettyAmount(
+                        amount
+                    )} to ${binding.txtContactName.text}."
 
                     val bundle = Bundle().apply { putString("nfcData", nfcDataString) }
                     findNavController().navigate(

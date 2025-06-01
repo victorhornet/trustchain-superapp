@@ -4,6 +4,7 @@ import android.os.Parcel
 import android.os.Parcelable
 
 enum class Mode { SEND, RECEIVE }
+
 enum class Channel { QR, NFC }
 
 // parcelize didnt work? custom..
@@ -25,7 +26,10 @@ data class TransactionArgs(
         parcel.readString()
     )
 
-    override fun writeToParcel(dest: Parcel, flags: Int) {
+    override fun writeToParcel(
+        dest: Parcel,
+        flags: Int
+    ) {
         dest.writeString(mode.name)
         dest.writeString(channel.name)
         dest.writeLong(amount)
@@ -38,6 +42,7 @@ data class TransactionArgs(
 
     companion object CREATOR : Parcelable.Creator<TransactionArgs> {
         override fun createFromParcel(parcel: Parcel): TransactionArgs = TransactionArgs(parcel)
+
         override fun newArray(size: Int): Array<TransactionArgs?> = arrayOfNulls(size)
     }
 }

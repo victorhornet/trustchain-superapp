@@ -43,12 +43,16 @@ class VouchManagementViewModel(
 
     /**
      * Set or update a vouch for a specific user.
-     * 
+     *
      * @param pubKey The public key of the user being vouched for
      * @param amount The vouch amount
      * @param until Optional expiration timestamp
      */
-    fun setVouch(pubKey: ByteArray, amount: Double, until: Long? = null) {
+    fun setVouch(
+        pubKey: ByteArray,
+        amount: Double,
+        until: Long? = null
+    ) {
         viewModelScope.launch {
             try {
                 val myKey = getMyPublicKey()
@@ -62,11 +66,14 @@ class VouchManagementViewModel(
 
     /**
      * Update only the expiration time for an existing vouch.
-     * 
+     *
      * @param pubKey The public key of the user being vouched for
      * @param until The new expiration timestamp
      */
-    fun setVouchUntil(pubKey: ByteArray, until: Long?) {
+    fun setVouchUntil(
+        pubKey: ByteArray,
+        until: Long?
+    ) {
         viewModelScope.launch {
             try {
                 val myKey = getMyPublicKey()
@@ -84,7 +91,7 @@ class VouchManagementViewModel(
 
     /**
      * Get a specific vouch for a user.
-     * 
+     *
      * @param pubKey The public key of the user being vouched for
      * @return The vouch entry or null if not found
      */
@@ -99,7 +106,7 @@ class VouchManagementViewModel(
 
     /**
      * Delete a vouch for a specific user.
-     * 
+     *
      * @param pubKey The public key of the user to remove vouch for
      */
     fun deleteVouch(pubKey: ByteArray) {
@@ -116,7 +123,7 @@ class VouchManagementViewModel(
 
     /**
      * Get the current user's public key from the TrustChain community.
-     * 
+     *
      * @return The current user's public key as ByteArray
      */
     private fun getMyPublicKey(): ByteArray {
@@ -130,4 +137,4 @@ class VouchManagementViewModel(
     fun refreshVouches() {
         loadVouchesFromStore()
     }
-} 
+}

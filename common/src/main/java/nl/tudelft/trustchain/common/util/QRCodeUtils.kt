@@ -19,7 +19,11 @@ import nl.tudelft.trustchain.common.ui.QRCodeActivityPortrait
 /** Helper class for creating */
 class QRCodeUtils(private val context: Context) {
     /** Start the QR scanner, which if successful, calls onActivityResult() on the fragment */
-    fun startQRScanner(fragment: Fragment, promptText: String? = null, vertical: Boolean = false) {
+    fun startQRScanner(
+        fragment: Fragment,
+        promptText: String? = null,
+        vertical: Boolean = false
+    ) {
         run {
             val integrator =
                 FragmentIntentIntegrator(fragment)
@@ -34,7 +38,11 @@ class QRCodeUtils(private val context: Context) {
         }
     }
 
-    fun parseActivityResult(requestCode: Int, resultCode: Int, data: Intent?): String? {
+    fun parseActivityResult(
+        requestCode: Int,
+        resultCode: Int,
+        data: Intent?
+    ): String? {
         return IntentIntegrator.parseActivityResult(requestCode, resultCode, data)?.contents
     }
 
