@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS vouches (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     voucher_public_key BLOB NOT NULL,
     vouchee_public_key BLOB NOT NULL,
-    vouch_amount DOUBLE NOT NULL,
+    vouch_amount REAL NOT NULL,
     vouch_until INTEGER,
     bond_id TEXT NOT NULL,
     created_at INTEGER NOT NULL,
@@ -21,6 +21,7 @@ SELECT * FROM vouches WHERE vouchee_public_key = ?;
 -- Get a specific vouch between two users
 getVouch:
 SELECT * FROM vouches WHERE voucher_public_key = ? AND vouchee_public_key = ?;
+
 
 -- Insert or update a vouch
 insertOrUpdateVouch:

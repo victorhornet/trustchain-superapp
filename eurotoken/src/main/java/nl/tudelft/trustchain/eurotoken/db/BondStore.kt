@@ -2,7 +2,6 @@ package nl.tudelft.trustchain.eurotoken.db
 
 import android.content.Context
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
-import nl.tudelft.common.sqldelight.Database
 import nl.tudelft.eurotoken.sqldelight.Database
 import nl.tudelft.trustchain.eurotoken.entity.BondStatus
 import java.util.Date
@@ -23,7 +22,7 @@ class BondStore(
      */
     private val bondMapper = {
         id: String,
-        amount: Long,
+        amount: Double,
         lender_public_key: ByteArray,
         receiver_public_key: ByteArray,
         created_at: Long,
@@ -41,7 +40,8 @@ class BondStore(
             expiredAt = Date(expired_at),
             transactionId = transaction_id,
             status = BondStatus.valueOf(status),
-            purpose = ""
+            purpose = "",
+            isOneShot = true
         )
     }
 
@@ -61,13 +61,15 @@ class BondStore(
             expired_at = bond.expiredAt.time,
             transaction_id = bond.transactionId,
             status = bond.status.name,
+            purpose = "",
+            is_one_shot = 1,
             updated_at = now
         )
     }
 
     /**
      * Get a specific bond by its ID.
-     *
+     *wh
      * @param bondId The ID of the bond
      * @return The bond or null if not found
      */
@@ -104,7 +106,7 @@ class BondStore(
      * @param userKey The public key of the user
      * @return List of active bonds
      */
-    fun getActiveBonds(userKey: ByteArray): List<Bonds> =
+    fun getActiveBondsByUserKey(userKey: ByteArray): List<Bonds> =
         database.dbBondQueries
             .getActiveBonds(
                 userKey,
@@ -161,7 +163,7 @@ class BondStore(
      * @param userKey The public key of the user
      * @return Total locked amount
      */
-    fun getTotalLockedAmount(userKey: ByteArray): Long = getActiveBonds(userKey).sumOf { it.amount }
+    fun getTotalLockedAmount(userKey: ByteArray): Long = getActiveBondsByUserKey(userKey).sumOf { it.amount }
 
     /**
      * Initialize the bond table in the database.

@@ -23,23 +23,12 @@ import org.bitcoinj.core.Address
 import org.bitcoinj.core.Coin
 import org.bitcoinj.wallet.SendRequest
 import nl.tudelft.trustchain.common.util.TrustChainHelper
-import nl.tudelft.trustchain.eurotoken.db.BondStore
-import nl.tudelft.trustchain.eurotoken.db.TrustStore
-import nl.tudelft.trustchain.eurotoken.db.VouchStore
-import nl.tudelft.trustchain.eurotoken.entity.Bond
-import nl.tudelft.trustchain.eurotoken.entity.BondStatus
 import java.lang.Math.abs
 import java.math.BigInteger
-import java.util.Date
-import java.util.UUID
-import java.util.concurrent.TimeUnit
 
 class TransactionRepository(
     val trustChainCommunity: TrustChainCommunity,
-    val gatewayStore: GatewayStore,
-    val vouchStore: VouchStore,
-    val bondStore: BondStore,
-    val trustStore: TrustStore
+    val gatewayStore: GatewayStore
 ) {
     private val scope = CoroutineScope(Dispatchers.IO)
 
@@ -1323,181 +1312,169 @@ class TransactionRepository(
     }
 
     // Collateral bond and locking
-    fun calculateBondHybrid(
-        trustScore: Int,
-        vouchAmount: Double
-    ): Double {
-        val base = 1.0
-        val topUp = (100 - trustScore).coerceAtLeast(0) / 100.0
-        return base + vouchAmount * topUp
-    }
+//    fun calculateBondHybrid(
+//        trustScore: Int,
+//        vouchAmount: Double
+//    ): Double {
+//        val base = 1.0
+//        val topUp = (100 - trustScore).coerceAtLeast(0) / 100.0
+//        return base + vouchAmount * topUp
+//    }
+//
+//    // Orchestrates the vouching process: checks balance, locks collateral, creates bond, and vouch entry
+//    fun createOneShotBond(
+//        receiver: ByteArray,
+//        amount: Long, // In cents (€0.01 units)
+//        expiryBlocks: Int = 1440
+//        // Default: ~24 hours (assuming 1 block/minute)
+//    ): TrustChainBlock? {
+//        // Verify sufficient spendable balance
+//        val spendable = getSpendableBalance(trustChainCommunity.myPeer.publicKey.keyToBin())
+//        if (spendable < amount) {
+//            Log.w("Bond", "Insufficient balance for bond creation")
+//            return null
+//        }
+//        val txId = generateTxId()
+//        // Create bond record
+//        val bond =
+//            Bond(
+//                id = UUID.randomUUID().toString(),
+//                amount = amount.toDouble() / 100, // Convert to euros
+//                publicKeyLender = trustChainCommunity.myPeer.publicKey.keyToBin(),
+//                publicKeyReceiver = receiver,
+//                createdAt = Date(),
+//                expiredAt = Date(System.currentTimeMillis() + expiryBlocks * 60_000),
+//                transactionId = txId,
+//                status = BondStatus.ACTIVE,
+//                purpose = "One-shot collateral",
+//                isOneShot = true
+//            )
+//        bondStore.setBond(bond)
+//
+//        // Create trust chain block
+//        val transaction =
+//            mapOf(
+//                KEY_AMOUNT to BigInteger.valueOf(amount),
+//                KEY_BOND_RECEIVER to receiver,
+//                KEY_BOND_ID to txId,
+//                KEY_BOND_EXPIRY to (System.currentTimeMillis() + expiryBlocks * 60_000),
+//                KEY_BALANCE to (getMyBalance() - amount)
+//            )
+//
+//        return trustChainCommunity
+//            .createProposalBlock(
+//                BLOCK_TYPE_ONE_SHOT_BOND,
+//                transaction,
+//                receiver
+//            ).also { block ->
+//                Log.d("Bond", "Created one-shot bond: ${block.calculateHash().toHex()}")
+//            }
+//    }
+//
+//    fun createVouchWithBond(
+//        vouchee: ByteArray,
+//        vouchAmount: Double,
+//        bondAmount: Long,
+//        expiryHours: Int = 24
+//    ): Boolean {
+//        //  Create bond
+//        val bondBlock =
+//            createOneShotBond(
+//                receiver = vouchee,
+//                amount = bondAmount,
+//                expiryBlocks = expiryHours * 60
+//            ) ?: return false
+//
+//        // Create vouch entry
+//        vouchStore.setVouch(
+//            voucherKey = trustChainCommunity.myPeer.publicKey.keyToBin(),
+//            voucheeKey = vouchee,
+//            amount = vouchAmount,
+//            until = System.currentTimeMillis() + TimeUnit.HOURS.toMillis(expiryHours.toLong()),
+//            bondId = bondBlock.calculateHash().toHex()
+//        )
+//
+//        return true
+//    }
+//
+//    private fun claimBond(bondId: String): Boolean {
+//        val bond = bondStore.getBond(bondId) ?: return false
+//
+//        return when {
+//            bond.status != BondStatus.ACTIVE -> {
+//                Log.w("Bond", "Bond $bondId is not active")
+//                false
+//            }
+//            bond.expiredAt.before(Date()) -> {
+//                bondStore.updateBondStatus(bondId, BondStatus.FORFEITED)
+//                Log.w("Bond", "Bond $bondId expired")
+//                false
+//            }
+//            else -> {
+//                // Transfer funds
+//                val amountCents = (bond.amount * 100).toLong()
+//                sendTransferProposalSync(
+//                    bond.publicKeyReceiver,
+//                    amountCents
+//                )?.let {
+//                    bondStore.updateBondStatus(bondId, BondStatus.RELEASED)
+//                    Log.d("Bond", "Successfully claimed bond $bondId")
+//                    true
+//                } ?: run {
+//                    Log.e("Bond", "Failed to transfer bond amount")
+//                    false
+//                }
+//            }
+//        }
+//    }
+//
+//    // Returns the spendable (unlocked) balance for a user
+//    fun getSpendableBalance(userKey: ByteArray): Long {
+//        val total = getMyBalance()
+//        val locked = bondStore.getTotalLockedAmount(userKey)
+//        return total - locked
+//    }
+//
+//    fun enforceBond(
+//        bondId: String,
+//        lender: ByteArray
+//    ): Boolean {
+//        val bond = bondStore.getBond(bondId) ?: return false
+//
+//        return when {
+//            bond.status != BondStatus.ACTIVE -> false
+//            bond.expiredAt.before(Date()) -> {
+//                bondStore.updateBondStatus(bondId, BondStatus.RELEASED)
+//                false
+//            }
+//            else -> {
+//                // Mark as claiming to temporarily release funds
+//                bondStore.updateBondStatus(bondId, BondStatus.ACTIVE)
+//
+//                val amountCents = (bond.amount * 100).toLong()
+//                val success = sendTransferProposalSync(lender, amountCents) != null
+//
+//                if (success) {
+//                    bondStore.updateBondStatus(bondId, BondStatus.CLAIMED)
+//                } else {
+//                    // Forfeit on failure
+//                    bondStore.updateBondStatus(bondId, BondStatus.FORFEITED)
+//                }
+//                success
+//            }
+//        }
+//    }
 
-    // Orchestrates the vouching process: checks balance, locks collateral, creates bond, and vouch entry
-    fun createOneShotBond(
-        receiver: ByteArray,
-        amount: Long, // In cents (€0.01 units)
-        expiryBlocks: Int = 1440
-        // Default: ~24 hours (assuming 1 block/minute)
-    ): TrustChainBlock? {
-        // Verify sufficient spendable balance
-        val spendable = getSpendableBalance(trustChainCommunity.myPeer.publicKey.keyToBin())
-        if (spendable < amount) {
-            Log.w("Bond", "Insufficient balance for bond creation")
-            return null
-        }
-        val txId = generateTxId()
-        // Create bond record
-        val bond =
-            Bond(
-                id = UUID.randomUUID().toString(),
-                amount = amount.toDouble() / 100, // Convert to euros
-                publicKeyLender = trustChainCommunity.myPeer.publicKey.keyToBin(),
-                publicKeyReceiver = receiver,
-                createdAt = Date(),
-                expiredAt = Date(System.currentTimeMillis() + expiryBlocks * 60_000),
-                transactionId = txId,
-                status = BondStatus.ACTIVE,
-                purpose = "One-shot collateral",
-                isOneShot = true
-            )
-        bondStore.setBond(bond)
-
-        // Create trust chain block
-        val transaction =
-            mapOf(
-                KEY_AMOUNT to BigInteger.valueOf(amount),
-                KEY_BOND_RECEIVER to receiver,
-                KEY_BOND_ID to txId,
-                KEY_BOND_EXPIRY to (System.currentTimeMillis() + expiryBlocks * 60_000),
-                KEY_BALANCE to (getMyBalance() - amount)
-            )
-
-        return trustChainCommunity
-            .createProposalBlock(
-                BLOCK_TYPE_ONE_SHOT_BOND,
-                transaction,
-                receiver
-            ).also { block ->
-                Log.d("Bond", "Created one-shot bond: ${block.calculateHash().toHex()}")
-            }
-    }
-
-    fun createVouchWithBond(
-        vouchee: ByteArray,
-        vouchAmount: Double,
-        bondAmount: Long,
-        expiryHours: Int = 24
-    ): Boolean {
-        //  Create bond
-        val bondBlock =
-            createOneShotBond(
-                receiver = vouchee,
-                amount = bondAmount,
-                expiryBlocks = expiryHours * 60
-            ) ?: return false
-
-        // Create vouch entry
-        vouchStore.setVouch(
-            voucherKey = trustChainCommunity.myPeer.publicKey.keyToBin(),
-            voucheeKey = vouchee,
-            amount = vouchAmount,
-            until = System.currentTimeMillis() + TimeUnit.HOURS.toMillis(expiryHours.toLong()),
-            bondId = bondBlock.calculateHash().toHex()
-        )
-
-        return true
-    }
-
-    private fun claimBond(bondId: String): Boolean {
-        val bond = bondStore.getBond(bondId) ?: return false
-
-        return when {
-            bond.status != BondStatus.ACTIVE -> {
-                Log.w("Bond", "Bond $bondId is not active")
-                false
-            }
-            bond.expiredAt.before(Date()) -> {
-                bondStore.updateBondStatus(bondId, BondStatus.FORFEITED)
-                Log.w("Bond", "Bond $bondId expired")
-                false
-            }
-            else -> {
-                // Transfer funds
-                val amountCents = (bond.amount * 100).toLong()
-                sendTransferProposalSync(
-                    bond.publicKeyReceiver,
-                    amountCents
-                )?.let {
-                    bondStore.updateBondStatus(bondId, BondStatus.RELEASED)
-                    Log.d("Bond", "Successfully claimed bond $bondId")
-                    true
-                } ?: run {
-                    Log.e("Bond", "Failed to transfer bond amount")
-                    false
-                }
-            }
-        }
-    }
-
-    // Returns the spendable (unlocked) balance for a user
-    fun getSpendableBalance(userKey: ByteArray): Long {
-        val total = getMyBalance()
-        val locked = bondStore.getTotalLockedAmount(userKey)
-        return total - locked
-    }
-
-    fun enforceBond(bondId: String, lender: ByteArray): Boolean {
-        val bond = bondStore.getBond(bondId) ?: return false
-
-        return when {
-            bond.status != BondStatus.ACTIVE -> false
-            bond.expiredAt.before(Date()) -> {
-                bondStore.updateBondStatus(bondId, BondStatus.EXPIRED)
-                false
-            }
-            else -> {
-                // Mark as claiming to temporarily release funds
-                bondStore.updateBondStatus(bondId, BondStatus.CLAIMING)
-
-                val amountCents = (bond.amount * 100).toLong()
-                val success = sendTransferProposalSync(lender, amountCents) != null
-
-                if (success) {
-                    bondStore.updateBondStatus(bondId, BondStatus.CLAIMED)
-                } else {
-                    // Forfeit on failure
-                    bondStore.updateBondStatus(bondId, BondStatus.FORFEITED)
-                }
-                success
-            }
-        }
-    }
-
-    // Cleanup expired bonds (call periodically)
-    fun cleanupExpiredBonds() {
-        val now = Date()
-        bondStore.getActiveBonds().forEach { bond ->
-            if (bond.expiredAt.before(now)) {
-                if (bond.status == BondStatus.ACTIVE) {
-                    bondStore.updateBondStatus(bond.id, BondStatus.EXPIRED)
-                }
-            }
-        }
-    }
+//    // Cleanup expired bonds (call periodically)
+//    fun cleanupExpiredBonds() {
+//
+//    }
 
     // Forfeit bond on loan payment failure
-    fun forfeitBond(bondId: String) {
-        bondStore.getBond(bondId)?.let {
-            if (it.status == BondStatus.ACTIVE) {
-                bondStore.updateBondStatus(bondId, BondStatus.FORFEITED)
-            }
-        }
-    }
 
-
-    // Generates a unique transaction ID (implement as needed)
-    fun generateTxId(): String =
-        java.util.UUID
-            .randomUUID()
-            .toString()
+//    // Generates a unique transaction ID (implement as needed)
+//    fun generateTxId(): String =
+//        java.util.UUID
+//            .randomUUID()
+//            .toString()
 }

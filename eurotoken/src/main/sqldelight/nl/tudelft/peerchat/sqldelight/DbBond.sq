@@ -1,7 +1,7 @@
 createBondTable:
 CREATE TABLE IF NOT EXISTS bonds (
     id TEXT NOT NULL PRIMARY KEY,
-    amount DOUBLE NOT NULL,
+    amount REAL NOT NULL,
     lender_public_key BLOB NOT NULL,
     receiver_public_key BLOB NOT NULL,
     created_at INTEGER NOT NULL,
@@ -48,7 +48,7 @@ SELECT *
 FROM bonds
 WHERE receiver_public_key = ?;
 
-getActiveBonds:
+getActiveBondsByUserKey:
 SELECT *
 FROM bonds
 WHERE (lender_public_key = ? OR receiver_public_key = ?)
@@ -73,17 +73,3 @@ SET status = ?,
     updated_at = ?
 WHERE id = ?;
 
-createBondTable:
-CREATE TABLE IF NOT EXISTS bonds (
-    id TEXT NOT NULL PRIMARY KEY,
-    amount DOUBLE NOT NULL,
-    lender_public_key BLOB NOT NULL,
-    receiver_public_key BLOB NOT NULL,
-    created_at INTEGER NOT NULL,
-    expired_at INTEGER NOT NULL,
-    transaction_id TEXT NOT NULL,
-    status TEXT NOT NULL,
-    purpose TEXT NOT NULL,
-    is_one_shot INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL
-);
