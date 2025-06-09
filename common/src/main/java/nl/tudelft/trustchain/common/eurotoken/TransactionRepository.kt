@@ -323,6 +323,8 @@ class TransactionRepository(
             KEY_BALANCE to newBalance
         )
 
+        Log.d("NFC-DEBUG", "Transaction data to be signed: $transaction")
+
         Log.d("BlockCreateDebug", "==================================================")
         Log.d("BlockCreateDebug", "---- Attempting to create new transaction block ----")
         Log.d("BlockCreateDebug", "Current Wallet Balance: $currentBalance")

@@ -290,6 +290,7 @@ class NfcReaderActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
             val dataBytes = concPayload.toByteArray()
 
             Log.d("NFC-DEBUG", "HCE payload read (hex): ${dataBytes.toHex()}")
+            
             val payloadString = String(dataBytes, Charsets.UTF_8)
             Log.i(TAG, "Data read successfully: $payloadString, size=${dataBytes.size}")
             UsageLogger.logTransactionCheckpointEnd("Read Data")
