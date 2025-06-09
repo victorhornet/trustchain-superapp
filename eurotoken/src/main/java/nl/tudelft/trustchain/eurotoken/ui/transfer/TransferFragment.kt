@@ -35,6 +35,7 @@ import nl.tudelft.trustchain.eurotoken.common.Mode
 import androidx.core.os.bundleOf
 import nl.tudelft.trustchain.eurotoken.common.TransactionArgs
 import nl.tudelft.trustchain.eurotoken.common.Channel
+import nl.tudelft.trustchain.eurotoken.ui.transfer.RequestMoneyFragment.Companion.TAG
 import kotlin.math.ceil
 import kotlin.math.floor
 
@@ -156,6 +157,7 @@ class TransferFragment : EurotokenBaseFragment(R.layout.fragment_transfer_euro) 
 
             val extraPayloadBytes = getExtraPayloadBytes()
             val myPublicKey = getTrustChainCommunity().myPeer.publicKey.keyToHash().toHex()
+
             val myName = ContactStore.getInstance(requireContext()).getContactFromPublicKey(getTrustChainCommunity().myPeer.publicKey)?.name ?: ""
 
             val qrJsonData = JSONObject().apply {
@@ -183,22 +185,26 @@ class TransferFragment : EurotokenBaseFragment(R.layout.fragment_transfer_euro) 
 
         // leads to bottomsheetfragment for SEND options
         binding.btnSendQR.setOnClickListener {
-            val amount = getAmount(binding.edtAmount.text.toString())
-            if (amount <= 0) {
-                Toast.makeText(requireContext(), "Please enter a positive amount to send.", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
+            // must be clearer to the user that he/she is now paying
+            // val amount = getAmount(binding.edtAmount.text.toString())
+            // if (amount <= 0) {
+            //     Toast.makeText(requireContext(), "Please enter a positive amount to send.", Toast.LENGTH_SHORT).show()
+            //     return@setOnClickListener
+            // }
+            binding.edtAmount.text.clear()
+            Toast.makeText(requireContext(), "Ready to Pay: Scan the receiver's code to get the amount.", Toast.LENGTH_LONG).show()
+
 
             val extraPayloadBytes = getExtraPayloadBytes()
             val transactionArgs = TransactionArgs(
                 mode = Mode.SEND,
                 channel = Channel.QR,
-                amount = amount,
+                amount =  0L, // todo: get amount from qr placeholder
                 extraPayloadBytes = extraPayloadBytes
             )
 
             // todo: bottomsheet instaed?
-            val bundle = bundleOf(TransportChoiceSheet.ARG_TRANSACTION_ARGS_RECEIVED to transactionArgs)
+            // val bundle = bundleOf(TransportChoiceSheet.ARG_TRANSACTION_ARGS_RECEIVED to transactionArgs)
             val transportSheet = TransportChoiceSheet.newInstance(transactionArgs)
 //            transportSheet.arguments = bundle
             transportSheet.show(childFragmentManager, "TransportChoiceSend")

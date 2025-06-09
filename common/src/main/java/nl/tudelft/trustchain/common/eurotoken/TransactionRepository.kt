@@ -25,6 +25,7 @@ import org.bitcoinj.wallet.SendRequest
 import nl.tudelft.trustchain.common.util.TrustChainHelper
 import java.lang.Math.abs
 import java.math.BigInteger
+import java.util.SortedMap
 
 class TransactionRepository(
     val trustChainCommunity: TrustChainCommunity,
@@ -183,17 +184,39 @@ class TransactionRepository(
         database: TrustChainStore
     ): Long? {
         if (block == null) {
-            Log.d("getBalanceForBlock", "Found null block!")
-            return null
+//            Log.d("getBalanceForBlock", "Found null block!")
+            Log.e("getBalanceForBlock", "FATAL: getBalanceForBlock called with null. Returning initial balance.")
+            //temporary fix, should be readjusted#TODO
+//            return null
+            return initialBalance
         } // Missing block
         Log.d("getBalanceForBlock", "Found block with ID: ${block.blockId}")
+
+
+        //helper function to get previousBalance instead of NULL
+        fun getPreviousBalance(currentBlock: TrustChainBlock): Long? {
+            val previousBlock = database.getBlockWithHash(currentBlock.previousHash)
+            if (previousBlock == null) {
+                Log.w("getBalanceForBlock", "Could not find previous block for block with Seq: ${currentBlock.sequenceNumber}.")
+                if (currentBlock.isGenesis) {
+                    Log.i("getBalanceForBlock", "This is the GENESIS block. Traversal finished as expected.")
+                } else {
+                    Log.e("getBalanceForBlock", "This is NOT genesis. The local blockchain is BROKEN.")
+                }
+                return initialBalance
+            }
+            return getBalanceForBlock(previousBlock, database)
+        }
+
         if (!EUROTOKEN_TYPES.contains(block.type)) {
-            return getBalanceForBlock(
-                database.getBlockWithHash(
-                    block.previousHash
-                ),
-                database
-            )
+//            return getBalanceForBlock(
+//                database.getBlockWithHash(
+//                    block.previousHash
+//                ),
+//                database
+//            )
+            // readjusted #TODO change back
+            return getPreviousBalance(block)
         }
         return if ( // block contains balance (base case)
             (
@@ -215,12 +238,18 @@ class TransactionRepository(
             if (block.isGenesis) {
                 return initialBalance + (block.transaction[KEY_AMOUNT] as BigInteger).toLong()
             }
-            getBalanceForBlock(database.getBlockWithHash(block.previousHash), database)?.plus(
+//            getBalanceForBlock(database.getBlockWithHash(block.previousHash), database)?.plus(
+//                (block.transaction[KEY_AMOUNT] as BigInteger).toLong()
+//            )
+            //readjusted #TODO
+            getPreviousBalance(block)?.plus(
                 (block.transaction[KEY_AMOUNT] as BigInteger).toLong()
             )
         } else {
             // bad type that shouldn't exist, for now just ignore and return for next
-            getBalanceForBlock(database.getBlockWithHash(block.previousHash), database)
+//            getBalanceForBlock(database.getBlockWithHash(block.previousHash), database)
+            //readjusted #TODO
+            getPreviousBalance(block)
         }
     }
 
@@ -273,21 +302,63 @@ class TransactionRepository(
         recipient: ByteArray,
         amount: Long
     ): TrustChainBlock? {
-        Log.d("sendTransferProposalSyn", "sending amount: $amount")
 
-        if (getMyBalance() - amount < 0) {
+        // CAUSED A validation conflict recalculates the balance
+//        if (getMyBalance() - amount < 0) {
+//            return null
+//        }
+
+        val currentBalance = getMyBalance()
+        val newBalance = currentBalance - amount
+
+        Log.d("sendTransferProposalSync", "sending amount: $amount")
+
+        if (currentBalance < amount) {
+            Log.e("BlockCreateDebug", "Insufficient balance. Have: $currentBalance, Need: $amount")
             return null
         }
-        val transaction =
-            mapOf(
-                KEY_AMOUNT to BigInteger.valueOf(amount),
-                KEY_BALANCE to (BigInteger.valueOf(getMyBalance() - amount).toLong())
-            )
-        return trustChainCommunity.createProposalBlock(
-            BLOCK_TYPE_TRANSFER,
-            transaction,
-            recipient
+
+        val transaction: SortedMap<String, Any> = sortedMapOf(
+            KEY_AMOUNT to BigInteger.valueOf(amount),
+            KEY_BALANCE to newBalance
         )
+
+        Log.d("BlockCreateDebug", "==================================================")
+        Log.d("BlockCreateDebug", "---- Attempting to create new transaction block ----")
+        Log.d("BlockCreateDebug", "Current Wallet Balance: $currentBalance")
+        Log.d("BlockCreateDebug", "Transaction Amount: $amount")
+        Log.d("BlockCreateDebug", "New Calculated Balance: $newBalance")
+        Log.d("BlockCreateDebug", "Recipient Public Key (Hex): ${recipient.toHex()}")
+        Log.d("BlockCreateDebug", "Transaction Data Map to be signed: $transaction")
+
+        val latestBlock = trustChainCommunity.database.getLatest(trustChainCommunity.myPeer.publicKey.keyToBin())
+        if (latestBlock != null) {
+            Log.d("BlockCreateDebug", "Latest own block (previous block) info:")
+            Log.d("BlockCreateDebug", "  - Sequence #: ${latestBlock.sequenceNumber}")
+            Log.d("BlockCreateDebug", "  - Hash (Hex): ${latestBlock.calculateHash().toHex()}")
+            Log.d("BlockCreateDebug", "  - Type: ${latestBlock.type}")
+        } else {
+            Log.w("BlockCreateDebug", "Could not find any previous blocks for self. This will be a genesis block.")
+        }
+        Log.d("BlockCreateDebug", "Calling 'createProposalBlock' NOW...")
+        Log.d("BlockCreateDebug", "==================================================")
+
+        //crash happens somewhere here
+        try {
+            return trustChainCommunity.createProposalBlock(
+                BLOCK_TYPE_TRANSFER,
+                transaction,
+                recipient
+            )
+        } catch (e: Exception) {
+            Log.e("BlockCreateDebug", "CRITICAL ERROR in createProposalBlock: ${e.message}", e)
+            throw e
+        }
+//        return trustChainCommunity.createProposalBlock(
+//            BLOCK_TYPE_TRANSFER,
+//            transaction,
+//            recipient
+//        )
     }
 
     fun verifyBalanceAvailable(

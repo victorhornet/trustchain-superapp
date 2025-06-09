@@ -75,7 +75,7 @@ open class EurotokenBaseFragment(contentLayoutId: Int = 0) : BaseFragment(conten
     }
 
     fun makeMoneyToast() {
-        Toast.makeText(requireContext(), "Money received!", Toast.LENGTH_LONG).show()
+        Toast.makeText(requireContext(), "Payment Confirmed by Recipient!", Toast.LENGTH_LONG).show()
     }
 
     fun playMoneySound() {

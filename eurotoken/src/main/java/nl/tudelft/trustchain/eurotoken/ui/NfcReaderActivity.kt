@@ -331,12 +331,13 @@ class NfcReaderActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
 
         if (error == null && payloadString != null) {
             Log.i(TAG, "Data read successfully (in handleCommResult): $payloadString")
-            val confirmationStatus = "Received data: $payloadString"
+            // val confirmationStatus = "Received data: $payloadString"
+            val confirmationStatus = "Payment details have been successfully fetched from the recipient\'s device. Tap \'Continue\' to review and confirm your payment on the previous screen."
 
             binding.ivNfcResultIcon.setImageResource(R.drawable.ic_baseline_check_circle_outline_24)
             binding.ivNfcResultIcon.setColorFilter(getColor(R.color.green))
 
-            updateStatus("Data received.")
+            updateStatus("Recipient Details Received!")
             updateResult(confirmationStatus)
 
             binding.btnConfirm.visibility = View.VISIBLE

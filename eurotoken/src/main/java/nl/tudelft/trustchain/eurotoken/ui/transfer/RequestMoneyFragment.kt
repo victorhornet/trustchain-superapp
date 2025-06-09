@@ -24,6 +24,7 @@ import nl.tudelft.trustchain.common.eurotoken.TransactionRepository
 import nl.tudelft.trustchain.common.contacts.ContactStore
 import java.nio.ByteBuffer
 import kotlin.math.ceil
+import nl.tudelft.ipv8.keyvault.LibNaClPK
 
 class RequestMoneyFragment : EurotokenBaseFragment(R.layout.fragment_request_money) {
     private var _binding: FragmentRequestMoneyBinding? = null
@@ -59,6 +60,10 @@ class RequestMoneyFragment : EurotokenBaseFragment(R.layout.fragment_request_mon
 
         // similar to transferfragment for qr
         val myPublicKey = getTrustChainCommunity().myPeer.publicKey.keyToBin().toHex()
+        Log.d(TAG, "Sending device's own public key:")
+        Log.d(TAG, "  from .keyToBin().toHex(): $myPublicKey")
+        Log.d(TAG, "  from .toString(): ${getTrustChainCommunity().myPeer.publicKey.toString()}")
+        Log.d(TAG, "  from .keyToHash().toHex(): ${getTrustChainCommunity().myPeer.publicKey.keyToHash().toHex()}")
         val myName = ContactStore.getInstance(requireContext()).getContactFromPublicKey(getTrustChainCommunity().myPeer.publicKey)?.name ?: ""
         val amount = transactionArgs.amount
         val jsonData = JSONObject().apply {

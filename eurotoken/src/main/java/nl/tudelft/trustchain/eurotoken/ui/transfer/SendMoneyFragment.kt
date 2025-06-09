@@ -37,6 +37,12 @@ import nl.tudelft.trustchain.eurotoken.common.ConnectionData
 import nl.tudelft.trustchain.eurotoken.nfc.EuroTokenHCEService
 import org.json.JSONObject
 import java.nio.ByteBuffer
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withTimeoutOrNull
+import nl.tudelft.trustchain.eurotoken.ui.transfer.RequestMoneyFragment.Companion.TAG
 
 class SendMoneyFragment : EurotokenBaseFragment(R.layout.fragment_send_money) {
     private var addContact = false
@@ -49,9 +55,10 @@ class SendMoneyFragment : EurotokenBaseFragment(R.layout.fragment_send_money) {
     private val binding by viewBinding(FragmentSendMoneyBinding::bind)
 
     private lateinit var nfcReaderLauncher: ActivityResultLauncher<Intent>
-    private lateinit var publicKey: String
-    private var transactionAmount: Long = 0L
-    private lateinit var recipientKey: PublicKey
+    // private var transactionToConfirm: TransactionArgs? = null
+    // private lateinit var publicKey: String
+    // private var transactionAmount: Long = 0L
+    // private lateinit var recipientKey: PublicKey
     // check if correct TODO
 
     private val ownPublicKey by lazy {
@@ -69,7 +76,9 @@ class SendMoneyFragment : EurotokenBaseFragment(R.layout.fragment_send_money) {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val originalTransactionArgs = navArgs.transactionArgs
+        // val originalTransactionArgs = navArgs.transactionArgs
         // how is nfcreaderactivity's result handled??->
+
         nfcReaderLauncher =
             registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result
                 ->
@@ -81,59 +90,90 @@ class SendMoneyFragment : EurotokenBaseFragment(R.layout.fragment_send_money) {
                 if (result.resultCode == Activity.RESULT_OK) {
                     // TODO: temporary solution for benchmarks because transactions break,
                     //  move this to appropriate place (finalize transaction).
-                    UsageLogger.logTransactionCheckpointEnd("Send Money")
-                    UsageLogger.logTransactionDone()
+                    // UsageLogger.logTransactionCheckpointEnd("Send Money")
+
+                    // UsageLogger.logTransactionDone()
                     val receivedData =
                         result.data?.getStringExtra(
                             "nl.tudelft.trustchain.eurotoken.NFC_DATA"
                         )
                             ?: return@registerForActivityResult
 
+
+
                     try {
                         val connData = ConnectionData(receivedData)
+                        val receivedPublicKeyHex = connData.publicKey
+//                        var recipientKey = null
+                        var recipientKey: PublicKey? = null
+                        recipientKey = receivedPublicKeyHex?.hexToBytes()?.let { defaultCryptoProvider.keyFromPublicBin(it) } //
 
-                        val updatedTransactionArgs = originalTransactionArgs.copy(
-                            publicKey = connData.publicKey, // check hex-> error
-                            name = connData.name,
-                            amount = currentTransactionArgs.amount,
-                            channel = Channel.NFC
-                        )
-                        // finalizeTransaction(updatedTransactionArgs)
-                        binding.txtContactName.text = connData.name ?: "Unknown (NFC)"
-                        binding.txtContactPublicKey.text = connData.publicKey ?: "No Public Key (NFC)"
-                        // updateTrustScoreDisplay(parsedConnectionData.publicKey)
-
-                        binding.btnSend.text = getString(R.string.confirm_send_nfc)
-                        binding.btnSend.setOnClickListener {
-                            finalizeTransaction(updatedTransactionArgs)
+                        if (recipientKey != null) {
+                            Log.d(TAG, "Recipient key after defaultCryptoProvider.keyFromPublicBin:")
+                            Log.d(TAG, "  Type: ${recipientKey.javaClass.simpleName}")
+                            Log.d(TAG, "  .keyToBin().toHex(): ${recipientKey.keyToBin().toHex()}")
+                            Log.d(TAG, "  .toString(): ${recipientKey.toString()}")
+                        } else {
+                            Log.e(TAG, "Failed to parse recipient public key (recipientKey is null).")
+                            return@registerForActivityResult
                         }
-                        binding.btnSend.visibility = View.VISIBLE
+                         currentTransactionArgs = currentTransactionArgs.copy(
+                             publicKey = connData.publicKey, // check hex-> error
+                             name = connData.name,
+                             amount = connData.amount, // now use amount from nfc
+                             channel = Channel.NFC
+                         )
 
-                        // val bundle = bundleOf("nfcData" to receivedData)
+                        updateUIWithRecipientData()
 
+                        // val bundle = Bundle().apply {
+                        //     putString("amount", connData.amount.toString())
+                        //     putString("name", connData.name)
+                        //     putString("pubkey", connData.publicKey)
+                        // }
                         // findNavController().navigate(R.id.action_sendMoneyFragment_to_nfcResultFragment, bundle)
                     } catch (e: JSONException) {
                         Log.e(TAG, "Error parsing JSON from NFC: $receivedData", e)
                         Toast.makeText(requireContext(), "NFC Error: Invalid data format received.", Toast.LENGTH_LONG).show()
-                        binding.btnSend.text = "Retry NFC Read"
-                        Toast.makeText(requireContext(), "Scan failed (invalid QR)", Toast.LENGTH_LONG).show()
+                        // binding.btnSend.text = "Retry NFC Read"
+                        // Toast.makeText(requireContext(), "Scan failed (invalid QR)", Toast.LENGTH_LONG).show()
+                        binding.btnSend.apply {
+                            text = "Retry NFC Read"
+                            setOnClickListener {
+                                Log.d(TAG, "Retrying NFC read...")
+                                // UsageLogger.logTransactionStart(jsonData)
+                                val intent = Intent(requireContext(), NfcReaderActivity::class.java)
+                                nfcReaderLauncher.launch(intent)
+                            }
+                        }
                     }
                 } else {
-                    val nfcErrorStr =
-                        result.data?.getStringExtra(
-                            "nl.tudelft.trustchain.eurotoken.NFC_ERROR"
-                        )
-                    val errorType =
-                        try {
-                            nfcErrorStr?.let { NfcError.valueOf(it) }
-                                ?: NfcError.UNKNOWN_ERROR
-                        } catch (e: IllegalArgumentException) {
-                            NfcError.UNKNOWN_ERROR
-                        }
+                    val nfcErrorStr = result.data?.getStringExtra("nl.tudelft.trustchain.eurotoken.NFC_ERROR")
+                    val errorType = try {
+                        nfcErrorStr?.let { NfcError.valueOf(it) } ?: NfcError.UNKNOWN_ERROR
+                    } catch (e: IllegalArgumentException) {
+                        NfcError.UNKNOWN_ERROR
+                    }
+
                     Log.w(TAG, "NFC Failed or Cancelled: $errorType")
                     val errorMsg = getString(R.string.nfc_confirmation_failed, errorType.name)
                     Toast.makeText(requireContext(), errorMsg, Toast.LENGTH_LONG).show()
-                    binding.btnSend.text = "Retry NFC Read"
+
+                    binding.btnSend.apply {
+                        text = "Retry NFC Read"
+                        setOnClickListener {
+                            Log.d(TAG, "Retrying NFC read...")
+                            val jsonData = JSONObject().apply {
+                                put("amount", currentTransactionArgs.amount)
+                                put("public_key", ownPublicKey.toString())
+                                put("name", ContactStore.getInstance(requireContext()).getContactFromPublicKey(ownPublicKey)?.name ?: "")
+                                put("type", "transfer")
+                            }.toString()
+                            UsageLogger.logTransactionStart(jsonData)
+                            val intent = Intent(requireContext(), NfcReaderActivity::class.java)
+                            nfcReaderLauncher.launch(intent)
+                        }
+                    }
                 }
             }
     }
@@ -152,6 +192,7 @@ class SendMoneyFragment : EurotokenBaseFragment(R.layout.fragment_send_money) {
         }
 
         binding.btnSend.visibility = View.GONE
+        binding.txtAmount.text = "Waiting for recipient..."
 
         // val publicKeyArg = transactionArgs.publicKey
         val amount = transactionArgs.amount
@@ -209,39 +250,7 @@ class SendMoneyFragment : EurotokenBaseFragment(R.layout.fragment_send_money) {
         binding.txtAmount.text = TransactionRepository.prettyAmount(amount)
         binding.txtContactPublicKey.text = publicKeyArg ?: ""
 
-        val trustScore = publicKeyArg
-            ?.hexToBytes()
-            ?.let { trustStore.getScore(it) }
-        logger.info { "Trustscore: $trustScore" }
-
-        if (trustScore != null) {
-            if (trustScore >= TRUSTSCORE_AVERAGE_BOUNDARY) {
-                binding.trustScoreWarning.text =
-                    getString(R.string.send_money_trustscore_warning_high, trustScore)
-                binding.trustScoreWarning.setBackgroundColor(
-                    ContextCompat.getColor(requireContext(), R.color.android_green)
-                )
-            } else if (trustScore > TRUSTSCORE_LOW_BOUNDARY) {
-                binding.trustScoreWarning.text =
-                    getString(R.string.send_money_trustscore_warning_average, trustScore)
-                binding.trustScoreWarning.setBackgroundColor(
-                    ContextCompat.getColor(requireContext(), R.color.metallic_gold)
-                )
-            } else {
-                binding.trustScoreWarning.text =
-                    getString(R.string.send_money_trustscore_warning_low, trustScore)
-                binding.trustScoreWarning.setBackgroundColor(
-                    ContextCompat.getColor(requireContext(), R.color.red)
-                )
-            }
-        } else {
-            binding.trustScoreWarning.text =
-                getString(R.string.send_money_trustscore_warning_no_score)
-            binding.trustScoreWarning.setBackgroundColor(
-                ContextCompat.getColor(requireContext(), R.color.metallic_gold)
-            )
-            binding.trustScoreWarning.visibility = View.VISIBLE
-        }
+        updateTrustScoreDisplay(publicKeyArg)
 
 //            val channel = currentTransactionArgs.channel
         val pubKey = currentTransactionArgs.publicKey
@@ -272,8 +281,9 @@ class SendMoneyFragment : EurotokenBaseFragment(R.layout.fragment_send_money) {
             Channel.NFC -> {
                 Log.d(TAG, "Entering NFC branch")
 
+
                 val jsonData = JSONObject().apply {
-                    put("amount", amount)
+                    put("amount", currentTransactionArgs.amount)
                     put("public_key", ownPublicKey.toString())
                     put("name", ContactStore.getInstance(requireContext()).getContactFromPublicKey(ownPublicKey)?.name ?: "")
                     put("type", "transfer")
@@ -287,6 +297,12 @@ class SendMoneyFragment : EurotokenBaseFragment(R.layout.fragment_send_money) {
                 val hcePayload = headerByes + payloadBytes
                 EuroTokenHCEService.setPayload(hcePayload)
                 Log.d(TAG, "⟶ HCE payload set for sending: $jsonData, size: ${hcePayload.size}")
+
+                binding.txtContactName.text = "Ready for NFC Scan"
+                binding.txtContactPublicKey.text = "Tap phone to get recipient details"
+                binding.txtAmount.text = "Amount: ${TransactionRepository.prettyAmount(currentTransactionArgs.amount)}"
+                binding.trustScoreWarning.visibility = View.GONE
+
                 binding.btnSend.apply {
                     text = "Start NFC Read"
                     visibility = View.VISIBLE
@@ -297,15 +313,70 @@ class SendMoneyFragment : EurotokenBaseFragment(R.layout.fragment_send_money) {
                         nfcReaderLauncher.launch(intent)
                     }
                 }
-                if (currentTransactionArgs.publicKey.isNullOrEmpty()) {
-                    binding.txtContactName.text = "Ready for NFC Scan"
-                    binding.txtContactPublicKey.text = "Tap to get recipient details"
-                    binding.trustScoreWarning.visibility = View.GONE
-                }
             }
             else -> {
                 Log.w(TAG, "Unknown channel: $channel")
             }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (currentTransactionArgs.channel == Channel.NFC && !currentTransactionArgs.publicKey.isNullOrEmpty()) {
+            updateUIWithRecipientData()
+        }
+    }
+
+    private fun updateUIWithRecipientData() {
+        binding.txtAmount.text = TransactionRepository.prettyAmount(currentTransactionArgs.amount)
+        binding.txtContactName.text = currentTransactionArgs.name ?: "Unknown Recipient"
+        binding.txtContactPublicKey.text = currentTransactionArgs.publicKey ?: ""
+
+        updateTrustScoreDisplay(currentTransactionArgs.publicKey)
+
+        binding.btnSend.apply {
+            text = "Confirm Payment"
+            visibility = View.VISIBLE
+            setOnClickListener {
+                finalizeTransaction(currentTransactionArgs)
+            }
+        }
+    }
+
+    private fun updateTrustScoreDisplay(publicKeyHex: String?) {
+        val trustScore = publicKeyHex
+            ?.hexToBytes()
+            ?.let { trustStore.getScore(it) }
+        logger.info { "Trustscore: $trustScore" }
+
+        if (trustScore != null) {
+            if (trustScore >= TRUSTSCORE_AVERAGE_BOUNDARY) {
+                binding.trustScoreWarning.text =
+                    getString(R.string.send_money_trustscore_warning_high, trustScore)
+                binding.trustScoreWarning.setBackgroundColor(
+                    ContextCompat.getColor(requireContext(), R.color.android_green)
+                )
+            } else if (trustScore > TRUSTSCORE_LOW_BOUNDARY) {
+                binding.trustScoreWarning.text =
+                    getString(R.string.send_money_trustscore_warning_average, trustScore)
+                binding.trustScoreWarning.setBackgroundColor(
+                    ContextCompat.getColor(requireContext(), R.color.metallic_gold)
+                )
+            } else {
+                binding.trustScoreWarning.text =
+                    getString(R.string.send_money_trustscore_warning_low, trustScore)
+                binding.trustScoreWarning.setBackgroundColor(
+                    ContextCompat.getColor(requireContext(), R.color.red)
+                )
+            }
+            binding.trustScoreWarning.visibility = View.VISIBLE
+        } else {
+            binding.trustScoreWarning.text =
+                getString(R.string.send_money_trustscore_warning_no_score)
+            binding.trustScoreWarning.setBackgroundColor(
+                ContextCompat.getColor(requireContext(), R.color.metallic_gold)
+            )
+            binding.trustScoreWarning.visibility = View.VISIBLE
         }
     }
 
@@ -319,6 +390,7 @@ class SendMoneyFragment : EurotokenBaseFragment(R.layout.fragment_send_money) {
             }
     }
 
+
     private fun onQrScanned(qrContent: String) {
         try {
             val cd = ConnectionData(qrContent)
@@ -327,7 +399,18 @@ class SendMoneyFragment : EurotokenBaseFragment(R.layout.fragment_send_money) {
                 name = cd.name,
                 amount = cd.amount
             )
-            finalizeTransaction(updatedArgs)
+            binding.txtAmount.text = TransactionRepository.prettyAmount(currentTransactionArgs.amount)
+            binding.txtContactName.text = currentTransactionArgs.name
+            binding.txtContactPublicKey.text = currentTransactionArgs.publicKey
+
+            updateTrustScoreDisplay(currentTransactionArgs.publicKey)
+
+            binding.btnSend.text = "Confirm Send (QR)"
+            binding.btnSend.isEnabled = true
+            binding.btnSend.visibility = View.VISIBLE
+            binding.btnSend.setOnClickListener {
+                finalizeTransaction(currentTransactionArgs)
+            }
         } catch (e: JSONException) {
             Toast.makeText(
                 requireContext(),
@@ -341,7 +424,11 @@ class SendMoneyFragment : EurotokenBaseFragment(R.layout.fragment_send_money) {
         val amount = args.amount
         val publicKey = args.publicKey
         val recipientKeyBytes = publicKey?.hexToBytes()
-        val recipientKey: PublicKey? = recipientKeyBytes?.let { defaultCryptoProvider.keyFromPublicBin(it) }
+        val recipientKey: PublicKey? = recipientKeyBytes?.let {
+            defaultCryptoProvider.keyFromPublicBin(
+                it
+            )
+        }
 
         val newName = binding.newContactName.text.toString()
         if (addContact && recipientKey != null && newName.isNotEmpty()) {
@@ -349,6 +436,9 @@ class SendMoneyFragment : EurotokenBaseFragment(R.layout.fragment_send_money) {
         }
 
         if (recipientKey != null) {
+            Log.d(TAG, "Successfully created PublicKey object. Type: ${recipientKey.javaClass.simpleName}")
+            Log.d(TAG, "Passing recipient key (binary hex) to repository: ${recipientKey.keyToBin().toHex()}")
+
             val success = transactionRepository.sendTransferProposal(recipientKey.keyToBin(), amount)
             if (!success) {
                 Toast.makeText(
@@ -358,26 +448,56 @@ class SendMoneyFragment : EurotokenBaseFragment(R.layout.fragment_send_money) {
                 ).show()
                 return
             }
-            // nfc? send address for trust upd
-            if (args.channel == Channel.NFC) {
-                val peer = findPeer(recipientKey.keyToBin().toHex())
-                if (peer != null) {
-                    getEuroTokenCommunity().sendAddressesOfLastTransactions(peer)
+            Log.d(TAG, "sendTransferProposal returned true.")
 
-                    val nfcDataString = "Transaction successful: Sent ${TransactionRepository.prettyAmount(amount)} to ${binding.txtContactName.text}."
+            UsageLogger.logTransactionCheckpointEnd("Send Money")
+            UsageLogger.logTransactionDone()
+            lifecycleScope.launch {
+                try {
+//                val peer = findPeer(recipientKey.keyToBin().toHex())
+//                if (peer != null) {
+                    Log.d(TAG, "Coroutine to send trust addresses: STARTED.")
+                    val peer = Peer(recipientKey)
+                    val peerFound = waitForPeer(peer, 5000L)
+                    //racecondition
+                    if (peerFound) {
+                        Log.d(TAG, "Peer discovered. Sending trust addresses.")
+                        getEuroTokenCommunity().sendAddressesOfLastTransactions(peer)
+                        Log.d(TAG, "Finished sending trust addresses.")
+                    } else {
+                        Log.w(TAG, "Could not find peer within the timeout. Trust information will not be sent.")
+                        Toast.makeText(requireContext(), "Could not sync trust info with peer.", Toast.LENGTH_SHORT).show()
+                    }
+                    launch(Dispatchers.Main) {
+                        // nfc? send address for trust upd
+                        Log.d(TAG, "Coroutine to send trust addresses: Navigating away.")
+                        if (args.channel == Channel.NFC) {
+                            // val nfcDataString = "Transaction successful: Sent ${
+                            //     TransactionRepository.prettyAmount(amount)
+                            // } to ${binding.txtContactName.text}."
+                            // val bundle = Bundle().apply { putString("nfcData", nfcDataString) }
+                            // findNavController().navigate(
+                            //     R.id.action_sendMoneyFragment_to_nfcResultFragment,
+                            //     bundle
+                            // )
+                            Toast.makeText(
+                                requireContext(),
+                                "Payment sent successfully to ${binding.txtContactName.text}!",
+                                Toast.LENGTH_SHORT
+                            ).show()
 
-                    val bundle = Bundle().apply { putString("nfcData", nfcDataString) }
-                    findNavController().navigate(
-                        R.id.action_sendMoneyFragment_to_nfcResultFragment,
-                        bundle
-                    )
-                } else {
-                    Log.w(TAG, "Could not find peer for sending trust addresses after NFC.")
+                            // Navigate to transactions for both NFC and QR
+                            findNavController().navigate(R.id.action_sendMoneyFragment_to_transactionsFragment)
+                        }
+                        // QR
+                        else {
+                            findNavController().navigate(R.id.action_sendMoneyFragment_to_transactionsFragment)
+                        }
+                    }
                 }
-            }
-            // QR
-            else {
-                findNavController().navigate(R.id.action_sendMoneyFragment_to_transactionsFragment)
+                catch (e:Exception){
+                    Log.e(TAG, ">>>> FAILED to send trust addresses. See exception below. <<<<", e) // need to find why trustdb doesnt see anything
+                }
             }
         } else {
             Toast.makeText(requireContext(), "Recipient public key is missing to send.", Toast.LENGTH_LONG).show()
@@ -398,6 +518,21 @@ class SendMoneyFragment : EurotokenBaseFragment(R.layout.fragment_send_money) {
     private fun getEuroTokenCommunity(): EuroTokenCommunity {
         return getIpv8().getOverlay<EuroTokenCommunity>()
             ?: throw java.lang.IllegalStateException("EuroTokenCommunity is not configured")
+    }
+
+    //hopefully resolves potential race condition
+    private suspend fun waitForPeer(peerToFind: Peer, timeoutMillis: Long): Boolean {
+        val community = getEuroTokenCommunity()
+        return withTimeoutOrNull(timeoutMillis) {
+            var peerFound = false
+            while (!peerFound) {
+                peerFound = community.getPeers().any { it.key.keyToBin().contentEquals(peerToFind.key.keyToBin()) }
+                if (!peerFound) {
+                    delay(300)
+                }
+            }
+            peerFound
+        } ?: false
     }
 
     companion object {

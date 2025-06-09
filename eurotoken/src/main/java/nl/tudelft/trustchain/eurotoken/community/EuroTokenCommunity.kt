@@ -1,6 +1,7 @@
 package nl.tudelft.trustchain.eurotoken.community
 
 import android.content.Context
+import android.util.Log
 import kotlin.random.Random
 import nl.tudelft.ipv8.Community
 import nl.tudelft.ipv8.IPv4Address
@@ -18,6 +19,7 @@ import nl.tudelft.trustchain.eurotoken.EuroTokenMainActivity.EurotokenPreference
 import nl.tudelft.trustchain.eurotoken.EuroTokenMainActivity.EurotokenPreferences.EUROTOKEN_SHARED_PREF_NAME
 import nl.tudelft.trustchain.eurotoken.db.TrustStore
 import nl.tudelft.trustchain.eurotoken.ui.settings.DefaultGateway
+import nl.tudelft.ipv8.util.hexToBytes
 
 class EuroTokenCommunity(
     store: GatewayStore,
@@ -74,9 +76,19 @@ class EuroTokenCommunity(
                 myPeer.key as PrivateKey
             )
 
-        val addresses: List<ByteArray> = String(payload.data).split(",").map { it.toByteArray() }
-        for (i in addresses.indices) {
-            myTrustStore.incrementTrust(addresses[i])
+        val payloadString = String(payload.data)
+        Log.d("EuroTokenCommunity", "Decrypted payload content: $payloadString")
+
+        if (payloadString.isBlank()) {
+            Log.w("EuroTokenCommunity", "Payload is blank. Aborting trust update.")
+            return
+        }
+
+        val addresses: List<ByteArray> = String(payload.data).split(",").map { it.hexToBytes() }
+        Log.d("EuroTokenCommunity", "Decoded ${addresses.size} addresses from payload.")
+        for (address in addresses) {
+            Log.d("EuroTokenCommunity", "Calling incrementTrust for address: ${address.toHex()}")
+            myTrustStore.incrementTrust(address)
         }
     }
 
@@ -192,12 +204,25 @@ class EuroTokenCommunity(
             // Get all addresses of the last [num] incoming transactions
             addresses.addAll(
                 transactionRepository.getTransactions(num).map { transaction: Transaction ->
-                    transaction.sender.toString()
+                    // transaction.sender.toString()
+                    //failed to share key when you were the recipient
+                    val counterpartyKey = if (transaction.outgoing) {
+                        transaction.receiver
+                    } else {
+                        transaction.sender
+                    }
+                    counterpartyKey.keyToBin().toHex() // string cant be read by other party
                 }
             )
         }
 
-        val payload = TransactionsPayload(EVAId.EVA_LAST_ADDRESSES, addresses.joinToString(separator = ",").toByteArray())
+//        val payload = TransactionsPayload(EVAId.EVA_LAST_ADDRESSES, addresses.joinToString(separator = ",").toByteArray())
+        Log.d("EuroTokenCommunity", "Preparing to send ${addresses.size} trust addresses to peer ${peer.mid}")
+
+        val payloadString = addresses.joinToString(separator = ",")
+        val payload = TransactionsPayload(EVAId.EVA_LAST_ADDRESSES, payloadString.toByteArray())
+
+        Log.d("EuroTokenCommunity", "Sending payload: $payloadString")
 
         val packet =
             serializePacket(
