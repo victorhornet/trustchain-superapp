@@ -26,7 +26,6 @@ import nl.tudelft.trustchain.common.util.QRCodeUtils
 import nl.tudelft.trustchain.common.util.viewBinding
 import nl.tudelft.trustchain.eurotoken.EuroTokenMainActivity
 import nl.tudelft.trustchain.eurotoken.R
-import nl.tudelft.trustchain.eurotoken.benchmarks.UsageLogger
 import nl.tudelft.trustchain.eurotoken.community.EuroTokenCommunity
 import nl.tudelft.trustchain.eurotoken.databinding.FragmentTransferEuroBinding
 import nl.tudelft.trustchain.eurotoken.ui.EurotokenBaseFragment
@@ -36,6 +35,8 @@ import nl.tudelft.trustchain.eurotoken.common.Mode
 import androidx.core.os.bundleOf
 import nl.tudelft.trustchain.eurotoken.common.TransactionArgs
 import nl.tudelft.trustchain.eurotoken.common.Channel
+import kotlin.math.ceil
+import kotlin.math.floor
 
 class TransferFragment : EurotokenBaseFragment(R.layout.fragment_transfer_euro) {
     private val binding by viewBinding(FragmentTransferEuroBinding::bind)
@@ -118,6 +119,8 @@ class TransferFragment : EurotokenBaseFragment(R.layout.fragment_transfer_euro) 
             binding.txtOwnName.text = "Your balance (" + ownContact.name + ")"
         }
 
+
+
         fun addName() {
             val newName = binding.edtMissingName.text.toString()
             if (newName.isNotEmpty()) {
@@ -125,10 +128,7 @@ class TransferFragment : EurotokenBaseFragment(R.layout.fragment_transfer_euro) 
                     .addContact(ownKey, newName)
                 if (ownContact?.name != null) {
                     binding.missingNameLayout.visibility = View.GONE
-                    binding.txtOwnName.text = "Your balance (" +
-                        ContactStore.getInstance(
-                            requireContext()
-                        ).getContactFromPublicKey(ownKey)?.name + ")"
+                    binding.txtOwnName.text = "Your balance (" + ContactStore.getInstance(requireContext()).getContactFromPublicKey(ownKey)?.name + ")"
                 }
                 val inputMethodManager =
                     requireContext().getSystemService(Activity.INPUT_METHOD_SERVICE) as InputMethodManager
@@ -154,29 +154,26 @@ class TransferFragment : EurotokenBaseFragment(R.layout.fragment_transfer_euro) 
                 return@setOnClickListener
             }
 
+            val extraPayloadBytes = getExtraPayloadBytes()
             val myPublicKey = getTrustChainCommunity().myPeer.publicKey.keyToHash().toHex()
-            val myName =
-                ContactStore.getInstance(
-                    requireContext()
-                ).getContactFromPublicKey(getTrustChainCommunity().myPeer.publicKey)?.name ?: ""
+            val myName = ContactStore.getInstance(requireContext()).getContactFromPublicKey(getTrustChainCommunity().myPeer.publicKey)?.name ?: ""
 
-            val qrJsonData =
-                JSONObject().apply {
-                    put("type", "request")
-                    put("amount", amount)
-                    put("public_key", myPublicKey)
-                    put("name", myName)
-                }.toString()
+            val qrJsonData = JSONObject().apply {
+                put("type", "request")
+                put("amount", amount)
+                put("public_key", myPublicKey)
+                put("name", myName)
+            }.toString()
 
-            val transactionArgs =
-                TransactionArgs(
-                    mode = Mode.RECEIVE,
-                    channel = Channel.QR,
-                    amount = amount,
-                    publicKey = myPublicKey,
-                    name = myName,
-                    qrData = qrJsonData
-                )
+            val transactionArgs = TransactionArgs(
+                mode = Mode.RECEIVE,
+                channel = Channel.QR,
+                amount = amount,
+                publicKey = myPublicKey,
+                name = myName,
+                qrData = qrJsonData,
+                extraPayloadBytes = extraPayloadBytes
+            )
 
             val bundle = bundleOf(TransportChoiceSheet.ARG_TRANSACTION_ARGS_RECEIVED to transactionArgs)
             val transportChoiceSheet = TransportChoiceSheet()
@@ -192,12 +189,13 @@ class TransferFragment : EurotokenBaseFragment(R.layout.fragment_transfer_euro) 
                 return@setOnClickListener
             }
 
-            val transactionArgs =
-                TransactionArgs(
-                    mode = Mode.SEND,
-                    channel = Channel.QR,
-                    amount = amount
-                )
+            val extraPayloadBytes = getExtraPayloadBytes()
+            val transactionArgs = TransactionArgs(
+                mode = Mode.SEND,
+                channel = Channel.QR,
+                amount = amount,
+                extraPayloadBytes = extraPayloadBytes
+            )
 
             // todo: bottomsheet instaed?
             val bundle = bundleOf(TransportChoiceSheet.ARG_TRANSACTION_ARGS_RECEIVED to transactionArgs)
@@ -224,16 +222,11 @@ class TransferFragment : EurotokenBaseFragment(R.layout.fragment_transfer_euro) 
         return null
     }
 
-    override fun onActivityResult(
-        requestCode: Int,
-        resultCode: Int,
-        data: Intent?
-    ) {
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         qrCodeUtils.parseActivityResult(requestCode, resultCode, data)?.let {
             try {
                 val connectionData = ConnectionData(it)
                 // Log transaction start for sending money via QR scan
-                val transactionID = UsageLogger.logTransactionStart(connectionData.toString())
 
                 if (connectionData.type == "transfer") {
                     val args = Bundle()
@@ -273,11 +266,8 @@ class TransferFragment : EurotokenBaseFragment(R.layout.fragment_transfer_euro) 
                         }
                         if (peer != null && euroTokenCommunity != null) {
                             euroTokenCommunity.sendAddressesOfLastTransactions(peer)
-                            // Send vouch data to keep network synchronized
-                            euroTokenCommunity.sendVouchData(peer)
                         }
                     } catch (e: Exception) {
-                        UsageLogger.logTransactionError(transactionID, e.toString())
                         logger.error { e }
                         Toast.makeText(
                             requireContext(),
@@ -287,15 +277,14 @@ class TransferFragment : EurotokenBaseFragment(R.layout.fragment_transfer_euro) 
                             .show()
                     }
 
-                    val transactionArgs =
-                        TransactionArgs(
-                            mode = Mode.SEND,
-                            channel = Channel.QR,
-                            amount = connectionData.amount,
-                            publicKey = connectionData.publicKey,
-                            name = connectionData.name,
-                            qrData = null
-                        )
+                    val transactionArgs = TransactionArgs(
+                        mode = Mode.SEND,
+                        channel = Channel.QR,
+                        amount = connectionData.amount,
+                        publicKey = connectionData.publicKey,
+                        name = connectionData.name,
+                        qrData = null
+                    )
                     findNavController().navigate(
                         R.id.sendMoneyFragment,
                         bundleOf("transaction_args_received" to transactionArgs)
@@ -386,6 +375,19 @@ class TransferFragment : EurotokenBaseFragment(R.layout.fragment_transfer_euro) 
                     ) {}
                 }
             )
+        }
+    }
+
+    private fun getExtraPayloadBytes(): Int {
+        val text = binding.edtExtraPayloadBytes.text.toString()
+        return if (text.isNotEmpty()) {
+            try {
+                text.toInt().coerceAtLeast(0)
+            } catch (e: NumberFormatException) {
+                0
+            }
+        } else {
+            0
         }
     }
 }

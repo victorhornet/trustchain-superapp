@@ -133,6 +133,30 @@
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@id/txtIntro" />
 
+            <TextView
+                android:id="@+id/txtExtraPayloadLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="Extra payload bytes (for testing):"
+                android:textSize="14sp"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/edtAmount" />
+
+            <EditText
+                android:id="@+id/edtExtraPayloadBytes"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:gravity="center"
+                android:hint="0"
+                android:inputType="number"
+                android:minWidth="100dp"
+                android:textSize="16sp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/txtExtraPayloadLabel" />
+
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnRequestQR" style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="0dp"
@@ -142,7 +166,7 @@
                 app:icon="@drawable/ic_baseline_incoming_24"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/edtAmount" />
+                app:layout_constraintTop_toBottomOf="@id/edtExtraPayloadBytes" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnSendQR" style="@style/Widget.MaterialComponents.Button"

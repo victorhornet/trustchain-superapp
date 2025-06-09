@@ -15,7 +15,8 @@ data class TransactionArgs(
     val amount: Long = 0L,
     val publicKey: String? = null,
     val name: String? = null,
-    val qrData: String? = null
+    val qrData: String? = null,
+    val extraPayloadBytes: Int = 0
 ) : Parcelable {
     constructor(parcel: Parcel) : this(
         Mode.valueOf(parcel.readString()!!),
@@ -23,7 +24,8 @@ data class TransactionArgs(
         parcel.readLong(),
         parcel.readString(),
         parcel.readString(),
-        parcel.readString()
+        parcel.readString(),
+        parcel.readInt()
     )
 
     override fun writeToParcel(
@@ -36,6 +38,7 @@ data class TransactionArgs(
         dest.writeString(publicKey)
         dest.writeString(name)
         dest.writeString(qrData)
+        dest.writeInt(extraPayloadBytes)
     }
 
     override fun describeContents(): Int = 0
