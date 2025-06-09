@@ -98,6 +98,8 @@ class RequestMoneyFragment : EurotokenBaseFragment(R.layout.fragment_request_mon
             // 4byts for length
             val headerByes = ByteBuffer.allocate(4).putInt(jsonData.length).array()
             val hcePayload = headerByes + jsonData.toByteArray(Charsets.UTF_8)
+            Log.d("NFC-DEBUG", "HCE payload to be sent (hex): ${hcePayload.toHex()}")
+
             EuroTokenHCEService.setPayload(hcePayload)
             Log.d(TAG, "NFC HCE Payload set for request: $jsonData, size: ${hcePayload.size}")
             Toast.makeText(requireContext(), "NFC active. Ready to be tapped by sender.", Toast.LENGTH_SHORT).show()

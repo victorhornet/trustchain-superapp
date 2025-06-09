@@ -437,9 +437,13 @@ class SendMoneyFragment : EurotokenBaseFragment(R.layout.fragment_send_money) {
 
         if (recipientKey != null) {
             Log.d(TAG, "Successfully created PublicKey object. Type: ${recipientKey.javaClass.simpleName}")
-            Log.d(TAG, "Passing recipient key (binary hex) to repository: ${recipientKey.keyToBin().toHex()}")
+            // Log.d(TAG, "Passing recipient key (binary hex) to repository: ${recipientKey.keyToBin().toHex()}")
 
             val success = transactionRepository.sendTransferProposal(recipientKey.keyToBin(), amount)
+            Log.d("NFC-DEBUG", "Recipient PK (bytes): ${recipientKey.keyToBin().toHex()}")
+            Log.d("NFC-DEBUG", "Recipient PK (string): $recipientKey")
+
+//            val success = transactionRepository.sendTransferProposal(recipientKey.keyToBin(), amount)
             if (!success) {
                 Toast.makeText(
                     requireContext(),
@@ -509,6 +513,7 @@ class SendMoneyFragment : EurotokenBaseFragment(R.layout.fragment_send_money) {
         while (itr.hasNext()) {
             val cur: Peer = itr.next()
             if (cur.key.keyToBin().toHex() == pubKeyHex) {
+                Log.d("NFC-DEBUG", "Recipient PK (bytes): ${pubKeyHex}")
                 return cur
             }
         }
