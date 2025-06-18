@@ -197,6 +197,11 @@ open class EurotokenBaseFragment(contentLayoutId: Int = 0) : BaseFragment(conten
                 true
             }
 
+            R.id.vouchesMenuItem -> {
+                findNavController().navigate(R.id.vouchesFragment)
+                true
+            }
+
             else -> super.onOptionsItemSelected(item)
         }
     }

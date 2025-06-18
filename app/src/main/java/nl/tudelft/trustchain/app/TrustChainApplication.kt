@@ -62,6 +62,7 @@ import nl.tudelft.trustchain.common.eurotoken.TransactionRepository
 import nl.tudelft.trustchain.currencyii.CoinCommunity
 import nl.tudelft.trustchain.eurotoken.community.EuroTokenCommunity
 import nl.tudelft.trustchain.eurotoken.db.TrustStore
+import nl.tudelft.trustchain.eurotoken.db.VouchStore
 import nl.tudelft.trustchain.musicdao.core.dao.DaoCommunity
 import nl.tudelft.trustchain.musicdao.core.ipv8.MusicCommunity
 import nl.tudelft.trustchain.valuetransfer.community.IdentityCommunity
@@ -263,8 +264,9 @@ class TrustChainApplication : Application() {
         val randomWalk = RandomWalk.Factory()
         val store = GatewayStore.getInstance(this)
         val trustStore = TrustStore.getInstance(this)
+        val vouchStore = VouchStore.getInstance(this)
         return OverlayConfiguration(
-            EuroTokenCommunity.Factory(store, trustStore, this),
+            EuroTokenCommunity.Factory(store, trustStore, vouchStore, this),
             listOf(randomWalk)
         )
     }

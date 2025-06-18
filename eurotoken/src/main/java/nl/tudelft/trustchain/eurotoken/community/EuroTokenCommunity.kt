@@ -17,11 +17,15 @@ import nl.tudelft.trustchain.common.eurotoken.TransactionRepository
 import nl.tudelft.trustchain.eurotoken.EuroTokenMainActivity.EurotokenPreferences.DEMO_MODE_ENABLED
 import nl.tudelft.trustchain.eurotoken.EuroTokenMainActivity.EurotokenPreferences.EUROTOKEN_SHARED_PREF_NAME
 import nl.tudelft.trustchain.eurotoken.db.TrustStore
+import nl.tudelft.trustchain.eurotoken.db.VouchStore
+import nl.tudelft.trustchain.eurotoken.entity.Vouch
 import nl.tudelft.trustchain.eurotoken.ui.settings.DefaultGateway
+import java.util.*
 
 class EuroTokenCommunity(
     store: GatewayStore,
     trustStore: TrustStore,
+    vouchStore: VouchStore,
     context: Context,
 ) : Community() {
     override val serviceId = "f0eb36102436bd55c7a3cdca93dcaefb08df0750"
@@ -34,6 +38,11 @@ class EuroTokenCommunity(
     private var myTrustStore: TrustStore
 
     /**
+     * The [VouchStore] used to fetch and update vouch data from peers.
+     */
+    private var myVouchStore: VouchStore
+
+    /**
      * The context used to access the shared preferences.
      */
     private var myContext: Context
@@ -41,11 +50,13 @@ class EuroTokenCommunity(
     init {
         messageHandlers[MessageId.ROLLBACK_REQUEST] = ::onRollbackRequestPacket
         messageHandlers[MessageId.ATTACHMENT] = ::onLastAddressPacket
+        messageHandlers[MessageId.VOUCH_DATA] = ::onVouchDataPacket
         if (store.getPreferred().isEmpty()) {
             DefaultGateway.addGateway(store)
         }
 
         myTrustStore = trustStore
+        myVouchStore = vouchStore
         myContext = context
     }
 
@@ -77,6 +88,43 @@ class EuroTokenCommunity(
         val addresses: List<ByteArray> = String(payload.data).split(",").map { it.toByteArray() }
         for (i in addresses.indices) {
             myTrustStore.incrementTrust(addresses[i])
+        }
+    }
+
+    /**
+     * Called upon receiving MessageId.VOUCH_DATA packet.
+     * Payload consists of vouch data from the sender.
+     * This function parses the packet and stores received vouches.
+     * Format is JSON-encoded vouch data.
+     * @param packet : the corresponding packet that contains the vouch payload.
+     */
+    private fun onVouchDataPacket(packet: Packet) {
+        val (peer, payload) =
+            packet.getDecryptedAuthPayload(
+                VouchPayload.Deserializer,
+                myPeer.key as PrivateKey
+            )
+
+        try {
+            val vouchDataString = String(payload.data, Charsets.UTF_8)
+            val vouchDataList = parseVouchData(vouchDataString)
+            
+            for (vouchData in vouchDataList) {
+                val vouch = Vouch(
+                    vouchedForPubKey = vouchData.vouchedForPubKey,
+                    amount = vouchData.amount,
+                    expiryDate = vouchData.expiryDate,
+                    createdDate = vouchData.createdDate,
+                    description = vouchData.description,
+                    isActive = vouchData.isActive,
+                    isReceived = true,
+                    senderPubKey = peer.publicKey.keyToBin()
+                )
+                myVouchStore.addVouch(vouch)
+            }
+        } catch (e: Exception) {
+            // Handle parsing errors gracefully
+            println("Error parsing vouch data: ${e.message}")
         }
     }
 
@@ -127,15 +175,17 @@ class EuroTokenCommunity(
         const val GATEWAY_CONNECT = 1
         const val ROLLBACK_REQUEST = 1
         const val ATTACHMENT = 4
+        const val VOUCH_DATA = 5
     }
 
     class Factory(
         private val store: GatewayStore,
         private val trustStore: TrustStore,
+        private val vouchStore: VouchStore,
         private val context: Context,
     ) : Overlay.Factory<EuroTokenCommunity>(EuroTokenCommunity::class.java) {
         override fun create(): EuroTokenCommunity {
-            return EuroTokenCommunity(store, trustStore, context)
+            return EuroTokenCommunity(store, trustStore, vouchStore, context)
         }
     }
 
@@ -166,6 +216,82 @@ class EuroTokenCommunity(
             publicKeys.add(generatePublicKey(seed + i))
         }
         return publicKeys
+    }
+
+    /**
+     * Parse vouch data from JSON string format.
+     * Format: "vouched_for_key|amount|expiry_date|created_date|description|is_active;..."
+     */
+    private fun parseVouchData(vouchDataString: String): List<Vouch> {
+        val vouches = mutableListOf<Vouch>()
+        if (vouchDataString.isBlank()) return vouches
+
+        val vouchEntries = vouchDataString.split(";")
+        for (entry in vouchEntries) {
+            if (entry.isBlank()) continue
+            try {
+                val parts = entry.split("|")
+                if (parts.size >= 6) {
+                    val vouch = Vouch(
+                        vouchedForPubKey = parts[0].hexToBytes(),
+                        amount = parts[1].toLong(),
+                        expiryDate = Date(parts[2].toLong()),
+                        createdDate = Date(parts[3].toLong()),
+                        description = parts[4],
+                        isActive = parts[5].toBoolean()
+                    )
+                    vouches.add(vouch)
+                }
+            } catch (e: Exception) {
+                // Skip invalid entries
+                continue
+            }
+        }
+        return vouches
+    }
+
+    /**
+     * Serialize vouches to string format.
+     * Format: "vouched_for_key|amount|expiry_date|created_date|description|is_active;..."
+     */
+    private fun serializeVouchData(vouches: List<Vouch>): String {
+        return vouches.joinToString(";") { vouch ->
+            "${vouch.vouchedForPubKey.toHex()}|${vouch.amount}|${vouch.expiryDate.time}|${vouch.createdDate.time}|${vouch.description}|${vouch.isActive}"
+        }
+    }
+
+    /**
+     * Send vouch data to a peer.
+     * @param peer : the peer to send the vouch data to.
+     * @param num : the maximum number of vouches to send.
+     */
+    fun sendVouchData(
+        peer: Peer,
+        num: Int = 10
+    ) {
+        val vouches = myVouchStore.getOwnActiveVouches().take(num)
+        val vouchDataString = serializeVouchData(vouches)
+
+        val payload = VouchPayload(EVAId.EVA_VOUCH_DATA, vouchDataString.toByteArray(Charsets.UTF_8))
+
+        val packet = serializePacket(
+            MessageId.VOUCH_DATA,
+            payload,
+            encrypt = true,
+            recipient = peer
+        )
+
+        // Send the vouch data to the peer using EVA
+        if (evaProtocolEnabled) {
+            evaSendBinary(
+                peer,
+                EVAId.EVA_VOUCH_DATA,
+                payload.id,
+                packet
+            )
+        } else {
+            send(peer, packet)
+        }
     }
 
     /**
@@ -227,5 +353,6 @@ class EuroTokenCommunity(
      */
     object EVAId {
         const val EVA_LAST_ADDRESSES = "eva_last_addresses"
+        const val EVA_VOUCH_DATA = "eva_vouch_data"
     }
 }
