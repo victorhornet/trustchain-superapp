@@ -154,7 +154,14 @@ class VouchStore(context: Context) {
         return result.executeAsOne()
     }
 
-
+    /**
+     * Get the total amount currently vouched by this user for others (excludes received vouches).
+     */
+    fun getTotalOwnVouchedAmount(): Long {
+        val currentTime = System.currentTimeMillis()
+        val result = database.dbVouchQueries.getTotalOwnVouchedAmount(currentTime) { amount -> amount ?: 0L }
+        return result.executeAsOne()
+    }
 
     companion object {
         private lateinit var instance: VouchStore

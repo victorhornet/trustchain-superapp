@@ -68,8 +68,8 @@ class VouchesFragment : EurotokenBaseFragment(R.layout.fragment_vouches) {
 
     private fun refreshTotalVouched() {
         lifecycleScope.launchWhenResumed {
-            // Update total vouched amount (only own vouches)
-            val totalAmount = vouchStore.getTotalVouchedAmount()
+            // Update total vouched amount (only own vouches, not received)
+            val totalAmount = vouchStore.getTotalOwnVouchedAmount()
             val totalInEuros = totalAmount / 100.0
             binding.txtTotalVouched.text = String.format("Total Vouched: €%.2f", totalInEuros)
             
@@ -92,6 +92,48 @@ class VouchesFragment : EurotokenBaseFragment(R.layout.fragment_vouches) {
         }
     }
 
+    /**
+     * Validates if the user has sufficient balance to create a vouch for the given amount.
+     * @param amountInCents The amount to vouch for in cents
+     * @return true if sufficient balance is available, false otherwise
+     */
+    private fun validateVouchBalance(amountInCents: Long): Boolean {
+        val currentBalance = transactionRepository.getMyBalance()
+        
+        // Handle negative balance case
+        if (currentBalance < 0) {
+            Toast.makeText(
+                requireContext(), 
+                "Cannot create vouch: Your account balance is negative", 
+                Toast.LENGTH_LONG
+            ).show()
+            return false
+        }
+        
+        // Get total amount already vouched for (only own vouches, not received ones)
+        val totalOwnVouchedAmount = vouchStore.getTotalOwnVouchedAmount()
+        val availableBalance = currentBalance - totalOwnVouchedAmount
+        
+        // Check if enough balance is available
+        if (amountInCents > availableBalance) {
+            val balanceInEuros = currentBalance / 100.0
+            val vouchedInEuros = totalOwnVouchedAmount / 100.0
+            val availableInEuros = availableBalance / 100.0
+            val requestedInEuros = amountInCents / 100.0
+            
+            Toast.makeText(
+                requireContext(), 
+                "Insufficient available balance.\nTotal: €%.2f | Already vouched: €%.2f | Available: €%.2f | Requested: €%.2f".format(
+                    balanceInEuros, vouchedInEuros, availableInEuros, requestedInEuros
+                ), 
+                Toast.LENGTH_LONG
+            ).show()
+            return false
+        }
+        
+        return true
+    }
+
     private fun showCreateVouchDialog() {
         val dialogView = layoutInflater.inflate(R.layout.dialog_create_vouch, null)
         val dialogBinding = DialogCreateVouchBinding.bind(dialogView)
@@ -111,6 +153,15 @@ class VouchesFragment : EurotokenBaseFragment(R.layout.fragment_vouches) {
         val userAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, userDisplayNames)
         userAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         dialogBinding.spinnerUsers.adapter = userAdapter
+        
+        // Display current balance information
+        val currentBalance = transactionRepository.getMyBalance()
+        val totalVouchedAmount = vouchStore.getTotalOwnVouchedAmount()
+        val availableBalance = currentBalance - totalVouchedAmount
+        val balanceInfoText = "Balance: €%.2f | Vouched: €%.2f | Available: €%.2f".format(
+            currentBalance / 100.0, totalVouchedAmount / 100.0, availableBalance / 100.0
+        )
+        dialogBinding.txtBalanceInfo.text = balanceInfoText
         
         var selectedDate: Date? = null
         
@@ -172,6 +223,10 @@ class VouchesFragment : EurotokenBaseFragment(R.layout.fragment_vouches) {
                         
                         val selectedTrustScore = trustScores[selectedUserIndex]
                         val amountInCents = (amount * 100).toLong()
+                        
+                        if (!validateVouchBalance(amountInCents)) {
+                            return@setOnClickListener
+                        }
                         
                         val vouch = Vouch(
                             vouchedForPubKey = selectedTrustScore.pubKey,

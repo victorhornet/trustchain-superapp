@@ -51,4 +51,7 @@ deleteExpiredVouches:
 DELETE FROM vouches WHERE expiry_date < ?;
 
 getTotalVouchedAmount:
-SELECT COALESCE(SUM(amount), 0) FROM vouches WHERE is_active = 1 AND expiry_date > ?; 
+SELECT COALESCE(SUM(amount), 0) FROM vouches WHERE is_active = 1 AND expiry_date > ?;
+
+getTotalOwnVouchedAmount:
+SELECT COALESCE(SUM(amount), 0) FROM vouches WHERE is_active = 1 AND is_received = 0 AND expiry_date > ?; 
