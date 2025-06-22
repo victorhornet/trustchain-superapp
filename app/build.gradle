@@ -105,13 +105,13 @@ repositories {
         url = 'https://raw.githubusercontent.com/blockchain/api-v1-client-java/mvn-repo/'
     }
     mavenCentral()
-    jcenter()
+//    jcenter()
 }
 
 allprojects {
     repositories {
         mavenCentral()
-        jcenter()
+//        jcenter()
     }
 }
 

@@ -284,7 +284,8 @@ class EuroTokenCommunity(
                         // Only update if we don't have this vouch or if received data is newer
                         val existingVouch = myVouchStore.getVouch(voucherKey, voucheeKey)
                         if (existingVouch == null) {
-                            myVouchStore.setVouch(voucherKey, voucheeKey, amount, until)
+                            // Fix: Add missing bondId parameter
+                            myVouchStore.setVouch(voucherKey, voucheeKey, amount, until, "")
                         }
                     } catch (e: Exception) {
                         // Skip malformed vouch entries
@@ -398,7 +399,7 @@ class EuroTokenCommunity(
                 expiryBlocks = expiryHours * 60
             ) ?: return false
 
-        // Create vouch entry
+        // Create vouch entry - Fix: Ensure bondId is provided
         myVouchStore.setVouch(
             voucherKey =
                 transactionRepository.trustChainCommunity.myPeer.publicKey
@@ -406,7 +407,7 @@ class EuroTokenCommunity(
             voucheeKey = vouchee,
             amount = vouchAmount,
             until = System.currentTimeMillis() + TimeUnit.HOURS.toMillis(expiryHours.toLong()),
-            bondId = bondBlock.calculateHash().toHex()
+            bondId = bondBlock.calculateHash().toHex() // This was already correct
         )
 
         return true
@@ -446,7 +447,7 @@ class EuroTokenCommunity(
 
     fun getSpendableBalance(userKey: ByteArray): Long {
         val total = transactionRepository.getMyBalance()
-        val locked = myBondStore.getTotalLockedAmount(userKey)
+        val locked = myBondStore.getTotalLockedAmount(userKey).toLong()
         return total - locked
     }
 
@@ -563,10 +564,10 @@ class EuroTokenCommunity(
                 myBondStore.updateBondStatus(bond.id, BondStatus.EXPIRED)
                 Log.d("Bond", "Marked expired bond ${bond.id} as EXPIRED")
             }
-        } ge
+        }
 
-            // Clean up expired bonds from database
-            myBondStore.cleanupExpiredBonds()
+        // Clean up expired bonds from database
+        myBondStore.cleanupExpiredBonds()
     }
 
     private fun generateTxId(): String = UUID.randomUUID().toString()

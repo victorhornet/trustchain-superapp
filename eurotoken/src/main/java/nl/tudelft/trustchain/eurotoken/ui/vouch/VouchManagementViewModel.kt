@@ -51,12 +51,13 @@ class VouchManagementViewModel(
     fun setVouch(
         pubKey: ByteArray,
         amount: Double,
-        until: Long? = null
+        until: Long? = null,
+        bondId: String = ""
     ) {
         viewModelScope.launch {
             try {
                 val myKey = getMyPublicKey()
-                vouchStore.setVouch(myKey, pubKey, amount, until)
+                vouchStore.setVouch(myKey, pubKey, amount, until, bondId)
                 loadVouchesFromStore() // Refresh the LiveData
             } catch (e: Exception) {
                 // Handle error - could emit error state or show toast
@@ -95,14 +96,13 @@ class VouchManagementViewModel(
      * @param pubKey The public key of the user being vouched for
      * @return The vouch entry or null if not found
      */
-    fun getVouch(pubKey: ByteArray): VouchEntry? {
-        return try {
+    fun getVouch(pubKey: ByteArray): VouchEntry? =
+        try {
             val myKey = getMyPublicKey()
             vouchStore.getVouch(myKey, pubKey)
         } catch (e: Exception) {
             null
         }
-    }
 
     /**
      * Delete a vouch for a specific user.
@@ -126,9 +126,9 @@ class VouchManagementViewModel(
      *
      * @return The current user's public key as ByteArray
      */
-    private fun getMyPublicKey(): ByteArray {
-        return transactionRepository.trustChainCommunity.myPeer.publicKey.keyToBin()
-    }
+    private fun getMyPublicKey(): ByteArray =
+        transactionRepository.trustChainCommunity.myPeer.publicKey
+            .keyToBin()
 
     /**
      * Refresh vouches from storage.

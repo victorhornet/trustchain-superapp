@@ -4,7 +4,6 @@ apply plugin: 'org.jlleitschuh.gradle.ktlint'
 apply plugin: 'androidx.navigation.safeargs'
 apply plugin: 'kotlin-kapt'
 apply plugin: "dagger.hilt.android.plugin"
-apply plugin: 'org.jetbrains.kotlin.plugin.compose'
 
 buildscript {
     repositories {
@@ -14,7 +13,6 @@ buildscript {
 
     dependencies {
         classpath("com.google.dagger:hilt-android-gradle-plugin:$dagger_version")
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:2.1.21"
     }
 }
 
@@ -64,10 +62,10 @@ android {
         }
     }
 
-//    composeOptions {
-////        kotlinCompilerVersion kotlin_version
-//        kotlinCompilerExtensionVersion "1.5.9"
-//    }
+    composeOptions {
+        kotlinCompilerVersion kotlin_version
+        kotlinCompilerExtensionVersion "1.5.9"
+    }
 
     namespace 'nl.tudelft.trustchain.musicdao'
 }

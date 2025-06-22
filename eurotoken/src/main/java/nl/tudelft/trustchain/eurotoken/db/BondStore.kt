@@ -29,6 +29,8 @@ class BondStore(
         expired_at: Long,
         transaction_id: String,
         status: String,
+        purpose: String,
+        is_one_shot: Long,
         updated_at: Long
         ->
         Bond(
@@ -40,15 +42,13 @@ class BondStore(
             expiredAt = Date(expired_at),
             transactionId = transaction_id,
             status = BondStatus.valueOf(status),
-            purpose = "",
-            isOneShot = true
+            purpose = purpose,
+            isOneShot = is_one_shot == 1L
         )
     }
 
     /**
      * Create a new bond or update an existing one.
-     *
-     * @param bond The bond to create or update
      */
     fun setBond(bond: Bond) {
         val now = System.currentTimeMillis()
@@ -61,17 +61,14 @@ class BondStore(
             expired_at = bond.expiredAt.time,
             transaction_id = bond.transactionId,
             status = bond.status.name,
-            purpose = "",
-            is_one_shot = 1,
+            purpose = bond.purpose,
+            is_one_shot = if (bond.isOneShot) 1L else 0L,
             updated_at = now
         )
     }
 
     /**
      * Get a specific bond by its ID.
-     *wh
-     * @param bondId The ID of the bond
-     * @return The bond or null if not found
      */
     fun getBond(bondId: String): Bond? =
         database.dbBondQueries
@@ -80,9 +77,6 @@ class BondStore(
 
     /**
      * Get all bonds created by a specific user.
-     *
-     * @param lenderKey The public key of the lender
-     * @return List of bonds
      */
     fun getBondsByLender(lenderKey: ByteArray): List<Bond> =
         database.dbBondQueries
@@ -91,9 +85,6 @@ class BondStore(
 
     /**
      * Get all bonds received by a specific user.
-     *
-     * @param receiverKey The public key of the receiver
-     * @return List of bonds
      */
     fun getBondsByReceiver(receiverKey: ByteArray): List<Bond> =
         database.dbBondQueries
@@ -102,23 +93,19 @@ class BondStore(
 
     /**
      * Get all active bonds for a user (either as lender or receiver).
-     *
-     * @param userKey The public key of the user
-     * @return List of active bonds
      */
-    fun getActiveBondsByUserKey(userKey: ByteArray): List<Bonds> =
+    fun getActiveBondsByUserKey(userKey: ByteArray): List<Bond> =
         database.dbBondQueries
-            .getActiveBonds(
+            .getActiveBondsByUserKey(
+                userKey,
                 userKey,
                 BondStatus.ACTIVE.name,
-                System.currentTimeMillis().toString(),
+                System.currentTimeMillis(),
                 bondMapper
             ).executeAsList()
 
     /**
      * Delete a specific bond.
-     *
-     * @param bondId The ID of the bond to delete
      */
     fun deleteBond(bondId: String) {
         database.dbBondQueries.deleteBond(bondId)
@@ -126,8 +113,6 @@ class BondStore(
 
     /**
      * Get all bonds in the database (for debugging/admin purposes).
-     *
-     * @return List of all bonds
      */
     fun getAllBonds(): List<Bond> =
         database.dbBondQueries
@@ -136,7 +121,6 @@ class BondStore(
 
     /**
      * Clean up expired bonds from the database.
-     * Should be called periodically to maintain database hygiene.
      */
     fun cleanupExpiredBonds() {
         val now = System.currentTimeMillis()
@@ -145,9 +129,6 @@ class BondStore(
 
     /**
      * Update the status of a bond.
-     *
-     * @param bondId The ID of the bond
-     * @param status The new status
      */
     fun updateBondStatus(
         bondId: String,
@@ -159,11 +140,8 @@ class BondStore(
 
     /**
      * Calculate total locked amount for a user (sum of all active bonds).
-     *
-     * @param userKey The public key of the user
-     * @return Total locked amount
      */
-    fun getTotalLockedAmount(userKey: ByteArray): Long = getActiveBondsByUserKey(userKey).sumOf { it.amount }
+    fun getTotalLockedAmount(userKey: ByteArray): Double = getActiveBondsByUserKey(userKey).sumOf { bond -> bond.amount }
 
     /**
      * Initialize the bond table in the database.

@@ -13,8 +13,18 @@ data class Transaction(
     val outgoing: Boolean,
     val timestamp: Date
 ) {
-    override fun equals(other: Any?): Boolean {
-        return other is Transaction &&
+    override fun equals(other: Any?): Boolean =
+        other is Transaction &&
             other.block == block
+
+    override fun hashCode(): Int {
+        var result = amount.hashCode()
+        result = 31 * result + outgoing.hashCode()
+        result = 31 * result + block.hashCode()
+        result = 31 * result + sender.hashCode()
+        result = 31 * result + receiver.hashCode()
+        result = 31 * result + type.hashCode()
+        result = 31 * result + timestamp.hashCode()
+        return result
     }
 }

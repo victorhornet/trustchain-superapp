@@ -1,12 +1,11 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 
 buildscript {
-    ext.kotlin_version = '2.1.0'
+    ext.kotlin_version = '1.9.22'
     ext.coroutines_version = '1.8.0'
     ext.ktlint_version = '1.1.1'
     ext.ktlint_gradle_version = '12.1.0'
-    ext.sqldelight_version = '2.1.0'
-    ext.compose_compiler_version = '1.6.0'
+    ext.sqldelight_version = '2.0.1'
     ext.nav_version = '2.5.3'
     ext.fragment_version = '1.5.4'
     ext.lifecycle_version = "2.5.1"
@@ -26,7 +25,7 @@ buildscript {
 
     repositories {
         google()
-        jcenter()
+//        jcenter()
         mavenCentral()
         maven { url "https://plugins.gradle.org/m2/" }
         maven { url 'https://jitpack.io' }
@@ -34,10 +33,6 @@ buildscript {
     dependencies {
         classpath 'com.android.tools.build:gradle:8.9.2'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-        classpath "org.jetbrains.kotlin:kotlin-serialization:$kotlin_version"
-        classpath "org.jetbrains.kotlin:kotlin-android-extensions:$kotlin_version"
-        classpath "org.jetbrains.kotlin.plugin.compose:org.jetbrains.kotlin.plugin.compose.gradle.plugin:$kotlin_version"  // New Compose compiler plugin
         classpath "org.jlleitschuh.gradle:ktlint-gradle:$ktlint_gradle_version"
         classpath "app.cash.sqldelight:gradle-plugin:$sqldelight_version"
         classpath "androidx.navigation:navigation-safe-args-gradle-plugin:$nav_version"
@@ -47,11 +42,10 @@ buildscript {
     }
 }
 
-
 allprojects {
     repositories {
         google()
-        jcenter()
+        mavenCentral()
         mavenCentral()
         maven { url 'https://jitpack.io' }
     }
