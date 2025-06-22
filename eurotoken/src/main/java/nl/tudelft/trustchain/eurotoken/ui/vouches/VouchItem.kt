@@ -12,4 +12,4 @@ class VouchItem(
     override fun areItemsTheSame(other: Item): Boolean {
         return other is VouchItem && vouch == other.vouch
     }
-} 
+}

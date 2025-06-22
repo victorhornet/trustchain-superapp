@@ -21,8 +21,8 @@ class TrustStore(
      * Maps the keys and accompanying trust scores out of the database into a kotlin [TrustScore] object.
      */
     private val messageMapper = {
-        public_key: ByteArray,
-        score: Long
+            public_key: ByteArray,
+            score: Long
         ->
         TrustScore(
             public_key,

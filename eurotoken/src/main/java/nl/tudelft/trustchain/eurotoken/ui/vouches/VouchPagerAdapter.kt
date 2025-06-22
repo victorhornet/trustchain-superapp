@@ -12,14 +12,13 @@ class VouchPagerAdapter(
     fragmentManager: FragmentManager,
     lifecycle: Lifecycle
 ) : FragmentStateAdapter(fragmentManager, lifecycle) {
-
     override fun getItemCount(): Int = 2
 
     override fun createFragment(position: Int): Fragment {
         return when (position) {
             0 -> VouchListFragment.newInstance(isReceived = false) // Own vouches
-            1 -> VouchListFragment.newInstance(isReceived = true)  // Received vouches
+            1 -> VouchListFragment.newInstance(isReceived = true) // Received vouches
             else -> throw IllegalArgumentException("Invalid position: $position")
         }
     }
-} 
+}

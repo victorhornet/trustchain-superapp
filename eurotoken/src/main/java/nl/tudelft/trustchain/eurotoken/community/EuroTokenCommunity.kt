@@ -1,6 +1,7 @@
 package nl.tudelft.trustchain.eurotoken.community
 
 import android.content.Context
+import android.util.Log
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.random.Random
@@ -8,6 +9,7 @@ import nl.tudelft.ipv8.Community
 import nl.tudelft.ipv8.IPv4Address
 import nl.tudelft.ipv8.Overlay
 import nl.tudelft.ipv8.Peer
+import nl.tudelft.ipv8.attestation.trustchain.TrustChainBlock
 import nl.tudelft.ipv8.keyvault.PrivateKey
 import nl.tudelft.ipv8.keyvault.defaultCryptoProvider
 import nl.tudelft.ipv8.messaging.Packet
@@ -16,13 +18,24 @@ import nl.tudelft.ipv8.util.toHex
 import nl.tudelft.trustchain.common.eurotoken.GatewayStore
 import nl.tudelft.trustchain.common.eurotoken.Transaction
 import nl.tudelft.trustchain.common.eurotoken.TransactionRepository
+import nl.tudelft.trustchain.common.eurotoken.TransactionRepository.Companion.BLOCK_TYPE_ONE_SHOT_BOND
+import nl.tudelft.trustchain.common.eurotoken.TransactionRepository.Companion.KEY_AMOUNT
+import nl.tudelft.trustchain.common.eurotoken.TransactionRepository.Companion.KEY_BALANCE
+import nl.tudelft.trustchain.common.eurotoken.TransactionRepository.Companion.KEY_BOND_EXPIRY
+import nl.tudelft.trustchain.common.eurotoken.TransactionRepository.Companion.KEY_BOND_ID
+import nl.tudelft.trustchain.common.eurotoken.TransactionRepository.Companion.KEY_BOND_RECEIVER
 import nl.tudelft.trustchain.eurotoken.EuroTokenMainActivity.EurotokenPreferences.DEMO_MODE_ENABLED
 import nl.tudelft.trustchain.eurotoken.EuroTokenMainActivity.EurotokenPreferences.EUROTOKEN_SHARED_PREF_NAME
 import nl.tudelft.trustchain.eurotoken.db.BondStore
 import nl.tudelft.trustchain.eurotoken.db.TrustStore
 import nl.tudelft.trustchain.eurotoken.db.VouchStore
+import nl.tudelft.trustchain.eurotoken.entity.Bond
+import nl.tudelft.trustchain.eurotoken.entity.BondStatus
+import nl.tudelft.trustchain.eurotoken.entity.Vouch
 import nl.tudelft.trustchain.eurotoken.ui.settings.DefaultGateway
+import java.math.BigInteger
 import java.util.Date
+import java.util.UUID
 import java.util.concurrent.TimeUnit
 import kotlin.text.toLong
 import kotlin.times
@@ -42,8 +55,10 @@ class EuroTokenCommunity(
      */
     private var myTrustStore: TrustStore
 
+    private var myBondStore: BondStore
+
     /**
-     * The [VouchStore] used to fetch and update vouch data from peers.
+     * The [VouchStore] used to fetch and update vouch information from peers.
      */
     private var myVouchStore: VouchStore
 
@@ -268,7 +283,14 @@ class EuroTokenCommunity(
      */
     private fun serializeVouchData(vouches: List<Vouch>): String =
         vouches.joinToString(";") { vouch ->
-            "${vouch.vouchedForPubKey.toHex()}|${vouch.amount}|${vouch.expiryDate.time}|${vouch.createdDate.time}|${vouch.description}|${vouch.isActive}"
+            listOf(
+                vouch.vouchedForPubKey.toHex(),
+                vouch.amount,
+                vouch.expiryDate.time,
+                vouch.createdDate.time,
+                vouch.description,
+                vouch.isActive
+            ).joinToString("|")
         }
 
     /**
@@ -293,17 +315,7 @@ class EuroTokenCommunity(
                 recipient = peer
             )
 
-        // Send the vouch data to the peer using EVA
-        if (evaProtocolEnabled) {
-            evaSendBinary(
-                peer,
-                EVAId.EVA_VOUCH_DATA,
-                payload.id,
-                packet
-            )
-        } else {
-            send(peer, packet)
-        }
+        send(peer, packet)
     }
 
     /**
@@ -345,18 +357,229 @@ class EuroTokenCommunity(
                 recipient = peer
             )
 
-        // Send the list of addresses to the peer using EVA
-        if (evaProtocolEnabled) {
-            evaSendBinary(
-                peer,
-                EVAId.EVA_LAST_ADDRESSES,
-                payload.id,
-                packet
-            )
-        } else {
-            send(peer, packet)
+        send(peer, packet)
+    }
+
+    fun forfeitBond(bondId: String) {
+        myBondStore.getBond(bondId)?.let {
+            if (it.status == BondStatus.ACTIVE) {
+                myBondStore.updateBondStatus(bondId, BondStatus.FORFEITED)
+            }
         }
     }
+
+    fun calculateBondHybrid(
+        trustScore: Int,
+        vouchAmount: Double
+    ): Double {
+        val base = 1.0
+        val topUp = (100 - trustScore).coerceAtLeast(0) / 100.0
+        return base + vouchAmount * topUp
+    }
+
+    fun getActiveBonds(): List<Bond> =
+        myBondStore.getActiveBondsByUserKey(
+            transactionRepository.trustChainCommunity.myPeer.publicKey
+                .keyToBin()
+        )
+
+    fun getBondsByLender(): List<Bond> =
+        myBondStore.getBondsByLender(
+            transactionRepository.trustChainCommunity.myPeer.publicKey
+                .keyToBin()
+        )
+
+    fun getBondsByReceiver(): List<Bond> =
+        myBondStore.getBondsByReceiver(
+            transactionRepository.trustChainCommunity.myPeer.publicKey
+                .keyToBin()
+        )
+
+    fun createOneShotBond(
+        receiver: ByteArray,
+        // In cents (€0.01 units)
+        amount: Long,
+        expiryBlocks: Int = 1440
+    ): TrustChainBlock? {
+        // Verify sufficient spendable balance
+        val spendable =
+            getSpendableBalance(
+                transactionRepository.trustChainCommunity.myPeer.publicKey
+                    .keyToBin()
+            )
+        if (spendable < amount) {
+            Log.w("Bond", "Insufficient balance for bond creation")
+            return null
+        }
+        val txId = generateTxId()
+        // Create bond record
+        val bond =
+            Bond(
+                id = UUID.randomUUID().toString(),
+                // Convert to euros
+                amount = amount.toDouble() / 100,
+                publicKeyLender =
+                    transactionRepository.trustChainCommunity.myPeer.publicKey
+                        .keyToBin(),
+                publicKeyReceiver = receiver,
+                createdAt = Date(),
+                expiredAt =
+                    Date(
+                        System.currentTimeMillis() + expiryBlocks * 60_000
+                    ),
+                transactionId = txId,
+                status = BondStatus.ACTIVE,
+                purpose = "One-shot collateral",
+                isOneShot = true
+            )
+        myBondStore.setBond(bond)
+
+        // Create trust chain block
+        val transaction =
+            mapOf(
+                TransactionRepository.KEY_AMOUNT to BigInteger.valueOf(amount),
+                TransactionRepository.KEY_BOND_RECEIVER to receiver,
+                TransactionRepository.KEY_BOND_ID to txId,
+                TransactionRepository.KEY_BOND_EXPIRY to
+                    (System.currentTimeMillis() + expiryBlocks * 60_000),
+                TransactionRepository.KEY_BALANCE to
+                    (transactionRepository.getMyBalance() - amount)
+            )
+
+        return transactionRepository.trustChainCommunity
+            .createProposalBlock(
+                TransactionRepository.BLOCK_TYPE_ONE_SHOT_BOND,
+                transaction,
+                receiver
+            ).also { block ->
+                Log.d("Bond", "Created one-shot bond: ${block.calculateHash().toHex()}")
+            }
+    }
+
+    fun createVouchWithBond(
+        vouchee: ByteArray,
+        vouchAmount: Double,
+        bondAmount: Long,
+        expiryHours: Int = 24
+    ): Boolean {
+        // Create bond
+        val bondBlock =
+            createOneShotBond(
+                receiver = vouchee,
+                amount = bondAmount,
+                expiryBlocks = expiryHours * 60
+            ) ?: return false
+
+        myVouchStore.addVouch(
+            Vouch(
+                vouchedForPubKey = vouchee,
+                amount = (vouchAmount * 100).toLong(),
+                expiryDate =
+                    Date(
+                        System.currentTimeMillis() +
+                            TimeUnit.HOURS.toMillis(expiryHours.toLong())
+                    ),
+                createdDate = Date(),
+                description = "Bond ID: ${bondBlock.calculateHash().toHex()}",
+                isActive = true,
+                isReceived = false,
+                senderPubKey = null
+            )
+        )
+
+        return true
+    }
+
+    fun claimBond(bondId: String): Boolean {
+        val bond = myBondStore.getBond(bondId) ?: return false
+
+        return when {
+            bond.status != BondStatus.ACTIVE -> {
+                Log.w("Bond", "Bond $bondId is not active")
+                false
+            }
+            bond.expiredAt.before(Date()) -> {
+                myBondStore.updateBondStatus(bondId, BondStatus.FORFEITED)
+                Log.w("Bond", "Bond $bondId expired")
+                false
+            }
+            else -> {
+                // Transfer funds
+                val amountCents = (bond.amount * 100).toLong()
+                transactionRepository
+                    .sendTransferProposalSync(
+                        bond.publicKeyReceiver,
+                        amountCents
+                    )?.let {
+                        myBondStore.updateBondStatus(bondId, BondStatus.RELEASED)
+                        Log.d("Bond", "Successfully claimed bond $bondId")
+                        true
+                    } ?: run {
+                    Log.e("Bond", "Failed to transfer bond amount")
+                    false
+                }
+            }
+        }
+    }
+
+    fun getSpendableBalance(userKey: ByteArray): Long {
+        val total = transactionRepository.getMyBalance()
+        val locked = myBondStore.getTotalLockedAmount(userKey).toLong()
+        return total - locked
+    }
+
+    fun enforceBond(
+        bondId: String,
+        lender: ByteArray
+    ): Boolean {
+        val bond = myBondStore.getBond(bondId) ?: return false
+
+        return when {
+            bond.status != BondStatus.ACTIVE -> false
+            bond.expiredAt.before(Date()) -> {
+                myBondStore.updateBondStatus(bondId, BondStatus.RELEASED)
+                false
+            }
+            else -> {
+                // Mark as claiming to temporarily release funds
+                myBondStore.updateBondStatus(bondId, BondStatus.ACTIVE)
+
+                val amountCents = (bond.amount * 100).toLong()
+                val success = transactionRepository.sendTransferProposalSync(lender, amountCents) != null
+
+                if (success) {
+                    myBondStore.updateBondStatus(bondId, BondStatus.CLAIMED)
+                } else {
+                    // Forfeit on failure
+                    myBondStore.updateBondStatus(bondId, BondStatus.FORFEITED)
+                }
+                success
+            }
+        }
+    }
+
+    fun cleanupExpiredBonds() {
+        val now = System.currentTimeMillis()
+        val myKey =
+            transactionRepository.trustChainCommunity.myPeer.publicKey
+                .keyToBin()
+
+        // Get all active bonds for the current user
+        val activeBonds = myBondStore.getActiveBondsByUserKey(myKey)
+
+        // Update status for expired bonds
+        activeBonds.forEach { bond ->
+            if (bond.expiredAt.time < now && bond.status == BondStatus.ACTIVE) {
+                myBondStore.updateBondStatus(bond.id, BondStatus.EXPIRED)
+                Log.d("Bond", "Marked expired bond ${bond.id} as EXPIRED")
+            }
+        }
+
+        // Clean up expired bonds from database
+        myBondStore.cleanupExpiredBonds()
+    }
+
+    private fun generateTxId(): String = UUID.randomUUID().toString()
 
     /**
      * Every community initializes a different version of the EVA protocol (if enabled).

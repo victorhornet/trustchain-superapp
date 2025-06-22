@@ -12,9 +12,10 @@ import java.util.*
 /**
  * [VouchItemRenderer] used by the [VouchesFragment] to render the [VouchItem] items as a list.
  */
-class VouchItemRenderer : ItemLayoutRenderer<VouchItem, View>(
-    VouchItem::class.java
-) {
+class VouchItemRenderer :
+    ItemLayoutRenderer<VouchItem, View>(
+        VouchItem::class.java
+    ) {
     private val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
 
     override fun bindView(
@@ -38,7 +39,7 @@ class VouchItemRenderer : ItemLayoutRenderer<VouchItem, View>(
         // Set status
         val currentTime = System.currentTimeMillis()
         val isExpired = vouch.expiryDate.time < currentTime
-        
+
         when {
             !vouch.isActive -> {
                 binding.txtStatus.text = "INACTIVE"
@@ -71,7 +72,5 @@ class VouchItemRenderer : ItemLayoutRenderer<VouchItem, View>(
         }
     }
 
-    override fun getLayoutResourceId(): Int {
-        return R.layout.item_vouch
-    }
-} 
+    override fun getLayoutResourceId(): Int = R.layout.item_vouch
+}

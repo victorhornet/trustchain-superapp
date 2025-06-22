@@ -21,17 +21,17 @@ class BondStore(
      * Maps the database columns to a kotlin [Bond] object.
      */
     private val bondMapper = {
-        id: String,
-        amount: Double,
-        lender_public_key: ByteArray,
-        receiver_public_key: ByteArray,
-        created_at: Long,
-        expired_at: Long,
-        transaction_id: String,
-        status: String,
-        purpose: String,
-        is_one_shot: Long,
-        updated_at: Long
+            id: String,
+            amount: Double,
+            lender_public_key: ByteArray,
+            receiver_public_key: ByteArray,
+            created_at: Long,
+            expired_at: Long,
+            transaction_id: String,
+            status: String,
+            purpose: String,
+            is_one_shot: Long,
+            updated_at: Long
         ->
         Bond(
             id = id,

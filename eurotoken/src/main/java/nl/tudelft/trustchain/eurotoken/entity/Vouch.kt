@@ -55,7 +55,9 @@ data class Vouch(
         if (senderPubKey != null) {
             if (other.senderPubKey == null) return false
             if (!senderPubKey.contentEquals(other.senderPubKey)) return false
-        } else if (other.senderPubKey != null) return false
+        } else if (other.senderPubKey != null) {
+            return false
+        }
 
         return true
     }
@@ -71,4 +73,4 @@ data class Vouch(
         result = 31 * result + (senderPubKey?.contentHashCode() ?: 0)
         return result
     }
-} 
+}

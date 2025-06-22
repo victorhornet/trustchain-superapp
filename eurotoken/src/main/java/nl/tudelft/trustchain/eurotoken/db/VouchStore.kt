@@ -5,26 +5,29 @@ import app.cash.sqldelight.driver.android.AndroidSqliteDriver
 import nl.tudelft.eurotoken.sqldelight.Database
 import nl.tudelft.trustchain.eurotoken.entity.Vouch
 import java.util.*
+import nl.tudelft.trustchain.eurotoken.entity.Guarantor
 
 /**
  * VouchStore manages the vouch commitments made by the user.
  * Vouches represent commitments to pay certain amounts for other users until set dates.
  * This store handles creating, updating, retrieving, and managing vouches.
  */
-class VouchStore(context: Context) {
+class VouchStore(
+    context: Context
+) {
     private val driver = AndroidSqliteDriver(Database.Schema, context, "eurotoken.db")
     private val database = Database(driver)
-    
+
     init {
         // Ensure the vouches table is created when the store is initialized
         initializeDatabase()
     }
-    
+
     private fun initializeDatabase() {
         try {
             // First try to create the table
             database.dbVouchQueries.createVouchTable()
-            
+
             // Test if the table has the correct schema by trying a simple query
             database.dbVouchQueries.getAllActive(vouchMapper).executeAsList()
         } catch (e: Exception) {
@@ -42,17 +45,18 @@ class VouchStore(context: Context) {
     /**
      * Maps the database fields to a kotlin [Vouch] object.
      */
-    private val vouchMapper = { 
-        _: Long, // id is not used in the Vouch entity
-        vouched_for_pub_key: ByteArray,
-        amount: Long,
-        expiry_date: Long,
-        created_date: Long,
-        description: String,
-        is_active: Long,
-        is_received: Long,
-        sender_pub_key: ByteArray?
-    ->
+    private val vouchMapper = {
+            // id is not used in the Vouch entity
+            _: Long,
+            vouched_for_pub_key: ByteArray,
+            amount: Long,
+            expiry_date: Long,
+            created_date: Long,
+            description: String,
+            is_active: Long,
+            is_received: Long,
+            sender_pub_key: ByteArray?
+        ->
         Vouch(
             vouchedForPubKey = vouched_for_pub_key,
             amount = amount,
@@ -68,44 +72,33 @@ class VouchStore(context: Context) {
     /**
      * Retrieve all vouches from the database.
      */
-    fun getAllVouches(): List<Vouch> {
-        return database.dbVouchQueries.getAll(vouchMapper).executeAsList()
-    }
+    fun getAllVouches(): List<Vouch> = database.dbVouchQueries.getAll(vouchMapper).executeAsList()
 
     /**
      * Retrieve all active vouches from the database.
      */
-    fun getAllActiveVouches(): List<Vouch> {
-        return database.dbVouchQueries.getAllActive(vouchMapper).executeAsList()
-    }
+    fun getAllActiveVouches(): List<Vouch> = database.dbVouchQueries.getAllActive(vouchMapper).executeAsList()
 
     /**
      * Retrieve all active vouches created by this user.
      */
-    fun getOwnActiveVouches(): List<Vouch> {
-        return database.dbVouchQueries.getOwnActive(vouchMapper).executeAsList()
-    }
+    fun getOwnActiveVouches(): List<Vouch> = database.dbVouchQueries.getOwnActive(vouchMapper).executeAsList()
 
     /**
      * Retrieve all active vouches received from other users.
      */
-    fun getReceivedActiveVouches(): List<Vouch> {
-        return database.dbVouchQueries.getReceivedActive(vouchMapper).executeAsList()
-    }
+    fun getReceivedActiveVouches(): List<Vouch> = database.dbVouchQueries.getReceivedActive(vouchMapper).executeAsList()
 
     /**
      * Retrieve vouches for a specific public key.
      */
-    fun getVouchesByPubKey(publicKey: ByteArray): List<Vouch> {
-        return database.dbVouchQueries.getByPubKey(publicKey, vouchMapper).executeAsList()
-    }
+    fun getVouchesByPubKey(publicKey: ByteArray): List<Vouch> = database.dbVouchQueries.getByPubKey(publicKey, vouchMapper).executeAsList()
 
     /**
      * Retrieve active vouches for a specific public key.
      */
-    fun getActiveVouchesByPubKey(publicKey: ByteArray): List<Vouch> {
-        return database.dbVouchQueries.getActiveByPubKey(publicKey, vouchMapper).executeAsList()
-    }
+    fun getActiveVouchesByPubKey(publicKey: ByteArray): List<Vouch> =
+        database.dbVouchQueries.getActiveByPubKey(publicKey, vouchMapper).executeAsList()
 
     /**
      * Add a new vouch to the database.
@@ -148,10 +141,28 @@ class VouchStore(context: Context) {
     /**
      * Get the total amount currently vouched for active vouches.
      */
-    fun getTotalVouchedAmount(): Long {
-        val currentTime = System.currentTimeMillis()
-        val result = database.dbVouchQueries.getTotalVouchedAmount(currentTime) { amount -> amount ?: 0L }
-        return result.executeAsOne()
+    fun getGuarantorsForUser(
+        userKey: ByteArray,
+        trustStore: TrustStore,
+        onlyActive: Boolean = true
+    ): List<Guarantor> {
+        val now = System.currentTimeMillis()
+        val vouches = getActiveVouchesByPubKey(userKey)
+        return vouches
+            .filter {
+                val until = it.expiryDate.time
+                until > now
+            }.mapNotNull { vouch ->
+                vouch.senderPubKey?.let { pubKey ->
+                    val trustScore = trustStore.getScore(pubKey) ?: 0L
+                    Guarantor(
+                        publicKey = pubKey,
+                        trust = trustScore.toInt(),
+                        vouchAmount = vouch.amount.toDouble(),
+                        vouchUntil = vouch.expiryDate.time
+                    )
+                }
+            }
     }
 
     /**
@@ -173,4 +184,4 @@ class VouchStore(context: Context) {
             return instance
         }
     }
-} 
+}
