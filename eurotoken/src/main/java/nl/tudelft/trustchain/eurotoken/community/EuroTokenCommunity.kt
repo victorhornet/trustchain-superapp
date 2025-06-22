@@ -1,6 +1,8 @@
 package nl.tudelft.trustchain.eurotoken.community
 
 import android.content.Context
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.random.Random
 import nl.tudelft.ipv8.Community
 import nl.tudelft.ipv8.IPv4Address
@@ -16,11 +18,14 @@ import nl.tudelft.trustchain.common.eurotoken.Transaction
 import nl.tudelft.trustchain.common.eurotoken.TransactionRepository
 import nl.tudelft.trustchain.eurotoken.EuroTokenMainActivity.EurotokenPreferences.DEMO_MODE_ENABLED
 import nl.tudelft.trustchain.eurotoken.EuroTokenMainActivity.EurotokenPreferences.EUROTOKEN_SHARED_PREF_NAME
+import nl.tudelft.trustchain.eurotoken.db.BondStore
 import nl.tudelft.trustchain.eurotoken.db.TrustStore
 import nl.tudelft.trustchain.eurotoken.db.VouchStore
-import nl.tudelft.trustchain.eurotoken.entity.Vouch
 import nl.tudelft.trustchain.eurotoken.ui.settings.DefaultGateway
-import java.util.*
+import java.util.Date
+import java.util.concurrent.TimeUnit
+import kotlin.text.toLong
+import kotlin.times
 
 class EuroTokenCommunity(
     store: GatewayStore,
@@ -58,6 +63,13 @@ class EuroTokenCommunity(
         myTrustStore = trustStore
         myVouchStore = vouchStore
         myContext = context
+        myBondStore = BondStore.getInstance(context)
+        scope.launch {
+            while (true) {
+                delay(TimeUnit.HOURS.toMillis(1))
+                cleanupExpiredBonds()
+            }
+        }
     }
 
     @JvmName("setTransactionRepository1")
@@ -108,18 +120,19 @@ class EuroTokenCommunity(
         try {
             val vouchDataString = String(payload.data, Charsets.UTF_8)
             val vouchDataList = parseVouchData(vouchDataString)
-            
+
             for (vouchData in vouchDataList) {
-                val vouch = Vouch(
-                    vouchedForPubKey = vouchData.vouchedForPubKey,
-                    amount = vouchData.amount,
-                    expiryDate = vouchData.expiryDate,
-                    createdDate = vouchData.createdDate,
-                    description = vouchData.description,
-                    isActive = vouchData.isActive,
-                    isReceived = true,
-                    senderPubKey = peer.publicKey.keyToBin()
-                )
+                val vouch =
+                    Vouch(
+                        vouchedForPubKey = vouchData.vouchedForPubKey,
+                        amount = vouchData.amount,
+                        expiryDate = vouchData.expiryDate,
+                        createdDate = vouchData.createdDate,
+                        description = vouchData.description,
+                        isActive = vouchData.isActive,
+                        isReceived = true,
+                        senderPubKey = peer.publicKey.keyToBin()
+                    )
                 myVouchStore.addVouch(vouch)
             }
         } catch (e: Exception) {
@@ -184,9 +197,7 @@ class EuroTokenCommunity(
         private val vouchStore: VouchStore,
         private val context: Context,
     ) : Overlay.Factory<EuroTokenCommunity>(EuroTokenCommunity::class.java) {
-        override fun create(): EuroTokenCommunity {
-            return EuroTokenCommunity(store, trustStore, vouchStore, context)
-        }
+        override fun create(): EuroTokenCommunity = EuroTokenCommunity(store, trustStore, vouchStore, context)
     }
 
     /**
@@ -232,14 +243,15 @@ class EuroTokenCommunity(
             try {
                 val parts = entry.split("|")
                 if (parts.size >= 6) {
-                    val vouch = Vouch(
-                        vouchedForPubKey = parts[0].hexToBytes(),
-                        amount = parts[1].toLong(),
-                        expiryDate = Date(parts[2].toLong()),
-                        createdDate = Date(parts[3].toLong()),
-                        description = parts[4],
-                        isActive = parts[5].toBoolean()
-                    )
+                    val vouch =
+                        Vouch(
+                            vouchedForPubKey = parts[0].hexToBytes(),
+                            amount = parts[1].toLong(),
+                            expiryDate = Date(parts[2].toLong()),
+                            createdDate = Date(parts[3].toLong()),
+                            description = parts[4],
+                            isActive = parts[5].toBoolean()
+                        )
                     vouches.add(vouch)
                 }
             } catch (e: Exception) {
@@ -254,11 +266,10 @@ class EuroTokenCommunity(
      * Serialize vouches to string format.
      * Format: "vouched_for_key|amount|expiry_date|created_date|description|is_active;..."
      */
-    private fun serializeVouchData(vouches: List<Vouch>): String {
-        return vouches.joinToString(";") { vouch ->
+    private fun serializeVouchData(vouches: List<Vouch>): String =
+        vouches.joinToString(";") { vouch ->
             "${vouch.vouchedForPubKey.toHex()}|${vouch.amount}|${vouch.expiryDate.time}|${vouch.createdDate.time}|${vouch.description}|${vouch.isActive}"
         }
-    }
 
     /**
      * Send vouch data to a peer.
@@ -274,12 +285,13 @@ class EuroTokenCommunity(
 
         val payload = VouchPayload(EVAId.EVA_VOUCH_DATA, vouchDataString.toByteArray(Charsets.UTF_8))
 
-        val packet = serializePacket(
-            MessageId.VOUCH_DATA,
-            payload,
-            encrypt = true,
-            recipient = peer
-        )
+        val packet =
+            serializePacket(
+                MessageId.VOUCH_DATA,
+                payload,
+                encrypt = true,
+                recipient = peer
+            )
 
         // Send the vouch data to the peer using EVA
         if (evaProtocolEnabled) {
