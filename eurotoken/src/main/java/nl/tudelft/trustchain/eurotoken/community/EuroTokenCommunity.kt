@@ -2,8 +2,6 @@ package nl.tudelft.trustchain.eurotoken.community
 
 import android.content.Context
 import android.util.Log
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlin.random.Random
 import nl.tudelft.ipv8.Community
 import nl.tudelft.ipv8.IPv4Address
@@ -79,13 +77,16 @@ class EuroTokenCommunity(
         myVouchStore = vouchStore
         myContext = context
         myBondStore = BondStore.getInstance(context)
-        scope.launch {
-            while (true) {
-                delay(TimeUnit.HOURS.toMillis(1))
-                cleanupExpiredBonds()
-            }
-        }
     }
+
+//    fun startCleanupTask() {
+//        scope.launch {
+//            while (true) {
+//                delay(TimeUnit.HOURS.toMillis(1))
+//                cleanupExpiredBonds()
+//            }
+//        }
+//    }
 
     @JvmName("setTransactionRepository1")
     fun setTransactionRepository(transactionRepositoryLocal: TransactionRepository) {
@@ -323,7 +324,7 @@ class EuroTokenCommunity(
      * Sends the [num] public keys of latest transaction counterparties to the receiver.
      * When DEMO mode is enabled, it generates 50 random keys instead.
      * @param peer : the peer to send the keys to.
-     * @param num : the number of keys to send.
+     * @param num : the number of keys to send.ir
      */
     fun sendAddressesOfLastTransactions(
         peer: Peer,
