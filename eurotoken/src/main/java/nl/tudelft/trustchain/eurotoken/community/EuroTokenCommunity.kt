@@ -8,7 +8,6 @@ import nl.tudelft.ipv8.IPv4Address
 import nl.tudelft.ipv8.Overlay
 import nl.tudelft.ipv8.Peer
 import nl.tudelft.ipv8.attestation.trustchain.TrustChainBlock
-import nl.tudelft.ipv8.attestation.trustchain.BlockListener
 import nl.tudelft.ipv8.keyvault.PrivateKey
 import nl.tudelft.ipv8.keyvault.defaultCryptoProvider
 import nl.tudelft.ipv8.messaging.Packet
@@ -32,12 +31,10 @@ import nl.tudelft.trustchain.eurotoken.entity.Bond
 import nl.tudelft.trustchain.eurotoken.entity.BondStatus
 import nl.tudelft.trustchain.eurotoken.entity.Vouch
 import nl.tudelft.trustchain.eurotoken.ui.settings.DefaultGateway
-import java.math.BigInteger
 import java.util.Date
 import java.util.UUID
 import java.util.concurrent.TimeUnit
-import kotlin.text.toLong
-import kotlin.times
+import java.math.BigInteger
 
 class EuroTokenCommunity(
     store: GatewayStore,
@@ -92,7 +89,7 @@ class EuroTokenCommunity(
     @JvmName("setTransactionRepository1")
     fun setTransactionRepository(transactionRepositoryLocal: TransactionRepository) {
         transactionRepository = transactionRepositoryLocal
-        addRollbackListener()
+//        addRollbackListener()
     }
 
     private fun onRollbackRequestPacket(packet: Packet) {
@@ -100,57 +97,67 @@ class EuroTokenCommunity(
         onRollbackRequest(peer, payload)
     }
 
-    private fun addRollbackListener() {
-        transactionRepository.trustChainCommunity.addListener(
-            TransactionRepository.BLOCK_TYPE_ROLLBACK,
-            object : BlockListener {
-                override fun onBlockReceived(block: TrustChainBlock) {
-                    // This is called when a rollback block is received and validated.
-                    // It indicates a previous transaction was invalid, possibly due to double-spending.
-                    handleTransactionRollback(block)
-                }
-            }
-        )
-    }
-
-    private fun handleTransactionRollback(rollbackBlock: TrustChainBlock) {
-        val myKey = transactionRepository.trustChainCommunity.myPeer.publicKey.keyToBin()
-
-        // A rollback block contains the hash of the transaction being rolled back.
-        val rolledBackTxHashHex = rollbackBlock.transaction[TransactionRepository.KEY_TRANSACTION_HASH] as? String
-            ?: return
-
-        val rolledBackBlock = try {
-            transactionRepository.trustChainCommunity.database.getBlockWithHash(rolledBackTxHashHex.hexToBytes())
-        } catch (e: Exception) {
-            null
-        } ?: return
-
-        // Determine the counterparty of the original transaction.
-        val counterpartyKey = if (rolledBackBlock.publicKey.contentEquals(myKey)) {
-            rolledBackBlock.linkPublicKey // I sent the original transaction
-        } else {
-            rolledBackBlock.publicKey // I received the original transaction
-        }
-
-        // Find an active, one-shot bond from me (lender) to the counterparty (receiver)
-        // that could have been collateral for this transaction.
-        val bonds = myBondStore.getBondsByLender(myKey)
-            .filter {
-                it.publicKeyReceiver.contentEquals(counterpartyKey) &&
-                    it.status == BondStatus.ACTIVE &&
-                    it.isOneShot &&
-                    it.createdAt.before(Date(rollbackBlock.timestamp * 1000)) // Bond created before rollback
-            }
-
-        // Forfeit the most recent matching bond.
-        bonds.maxByOrNull { it.createdAt }?.let { bondToForfeit ->
-            myBondStore.updateBondStatus(bondToForfeit.id, BondStatus.FORFEITED)
-            Log.d("BondForfeiture", "Bond ${bondToForfeit.id} automatically forfeited due to transaction rollback (double-spend).")
-            // The bond amount is now permanently gone from the user's balance,
-            // as it was subtracted on creation and will not be returned.
-        }
-    }
+//    private fun addRollbackListener() {
+//        transactionRepository.trustChainCommunity.addListener(
+//            TransactionRepository.BLOCK_TYPE_ROLLBACK,
+//            object : BlockListener {
+//                override fun onBlockReceived(block: TrustChainBlock) {
+//                    // This is called when a rollback block is received and validated.
+//                    // It indicates a previous transaction was invalid, possibly due to double-spending.
+//                    handleTransactionRollback(block)
+//                }
+//            }
+//        )
+//    }
+//
+//    private fun handleTransactionRollback(rollbackBlock: TrustChainBlock) {
+//        val myKey =
+//            transactionRepository.trustChainCommunity.myPeer.publicKey
+//                .keyToBin()
+//
+//        // A rollback block contains the hash of the transaction being rolled back.
+//        val rolledBackTxHashHex =
+//            rollbackBlock.transaction[TransactionRepository.KEY_TRANSACTION_HASH] as? String
+//                ?: return
+//
+//        val rolledBackBlock =
+//            try {
+//                transactionRepository.trustChainCommunity.database.getBlockWithHash(rolledBackTxHashHex.hexToBytes())
+//            } catch (e: Exception) {
+//                null
+//            } ?: return
+//
+//        // Determine the counterparty of the original transaction.
+//        val counterpartyKey =
+//            if (rolledBackBlock.publicKey.contentEquals(myKey)) {
+//                rolledBackBlock.linkPublicKey // I sent the original transaction
+//            } else {
+//                rolledBackBlock.publicKey // I received the original transaction
+//            }
+//
+//        // Find an active, one-shot bond from me (lender) to the counterparty (receiver)
+//        // that could have been collateral for this transaction.
+//        val rollbackDate = Date(rollbackBlock.timestamp.toLong() * 1_000L)
+//        val bonds =
+//            myBondStore
+//                .getBondsByLender(myKey)
+//                .filter {
+//                    it.publicKeyReceiver.contentEquals(counterpartyKey) &&
+//                        it.status == BondStatus.ACTIVE &&
+//                        it.isOneShot &&
+//                        it.createdAt.before(rollbackDate)
+//                }
+//
+//        // Forfeit the most recent matching bond.
+//        bonds.maxByOrNull { it.createdAt }?.let { bondToForfeit ->
+//            myBondStore.updateBondStatus(bondToForfeit.id, BondStatus.FORFEITED)
+//            Log.d("BondForfeiture", "Bond ${bondToForfeit.id} automatically forfeited due to transaction rollback (double-spend).")
+//            // The bond amount is now permanently gone from the user's balance,
+//            // as it was subtracted on creation and will not be returned.
+// //            myTrustStore.decrementTrust(counterpartyKey, PENALTY_VALUE)
+// //            Log.d("Trust", "Reduced trust for ${counterpartyKey.toHex()}")
+//        }
+//    }
 
     /**
      * Called upon receiving MessageId.ATTACHMENT packet.
@@ -210,6 +217,25 @@ class EuroTokenCommunity(
             println("Error parsing vouch data: ${e.message}")
         }
     }
+
+//    fun sendTransferProposalWithRiskCheck(
+//        receiver: ByteArray,
+//        amount: Long
+//    ): TrustChainBlock? {
+//        // Get borrower's latest block
+//        val borrowerBlock = getLatestBlock(receiver)
+//
+//        // Calculate risk
+//        val risk = riskEstimator.riskEstimationFunction(amount, borrowerBlock)
+//
+//        // Show risk in UI (need callback to activity)
+//        onRiskCalculated(risk)
+//
+//        if (risk < RISK_THRESHOLD) {
+//            return transactionRepository.sendTransferProposalSync(receiver, amount)
+//        }
+//        return null
+//    }
 
     private fun onRollbackRequest(
         peer: Peer,
@@ -517,6 +543,21 @@ class EuroTokenCommunity(
         bondAmount: Long,
         expiryHours: Int = 24
     ): Boolean {
+//        val riskScore =
+//            riskEstimator.riskEstimationFunction(
+//                amount = (vouchAmount * 100).toLong(),
+//                payerBlock = getLatestBlock(vouchee) // Need to implement peer block fetch
+//            )
+//
+//        // Only create vouch if risk is acceptable
+//        if (riskScore < MIN_ACCEPTABLE_RISK) {
+//            Log.w("Vouch", "Risk too high: ${"%.2f".format(riskScore * 100)}%")
+//            return false
+//        }
+//
+//        // Calculate bond amount based on risk
+//        val trustScore = myTrustStore.getScore(vouchee) ?: 0
+//        val bondAmount = calculateBondAmount(trustScore, vouchAmount)
         // Create bond
         val bondBlock =
             createOneShotBond(
