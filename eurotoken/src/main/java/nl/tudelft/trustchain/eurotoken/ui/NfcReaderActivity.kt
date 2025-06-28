@@ -34,6 +34,7 @@ import nl.tudelft.trustchain.common.eurotoken.benchmarks.UsageLogger
 import nl.tudelft.trustchain.common.eurotoken.benchmarks.TransferDirection
 import nl.tudelft.trustchain.common.eurotoken.benchmarks.TransferError
 import nl.tudelft.trustchain.common.eurotoken.benchmarks.trackCheckpoint
+import nl.tudelft.trustchain.common.eurotoken.worker.SyncWorker
 
 class NfcReaderActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
 
