@@ -30,29 +30,67 @@
 ## Core components
 
 ### Room Database
-<!-- how is the data stored? -->
+
+**Purpose**: SQLite-based persistence layer for storing all benchmark events with efficient querying capabilities.
+
+**Key Features**:
+
+- Room ORM with type-safe database access
+- Singleton pattern with application context to prevent memory leaks
+- Version 3 schema with migration support for future updates
+- Fallback to destructive migration for development flexibility
+
+**Database Structure**:
+
+- Separate tables for each event type (transaction_start_events, transfer_done_events, etc.)
+- Auto-generated primary keys and indexed transaction/transfer IDs
+- Timestamp fields for all events enabling time-series analysis
+- Enum storage for categorized data (error types, cancel reasons, transfer directions)
 
 ### Data Models
 
-**transaction events**
-represents monetary tranactions e.g. sending 2 euros to someone. starts when you click "Send", ends when you payment is confirmed.
-TransactionStartEvent - start of a transaction
-TransactionErrorEvent - if the transaction errors
-TransactionCancelEvent - if the transaction is canceled (didnt finish)
-TransactionDoneEvent - if the transaction finished successfully
+**Purpose**: Room entity classes that define the structure of logged events for comprehensive transaction analysis.
 
-**transaction checkpoint events**
-represents the phases of each transaction for granular timings. they have a label, which identifies tem (e.g. `create_proposal_block`). useful to know which steps in a transaction take the most time, etc.
-utility classes for creating these vents in TransactionCheckpoints.kt
+**Transaction Events**:
+Represents monetary transactions (e.g., sending 2 euros to someone). Lifecycle spans from clicking "Send" to payment confirmation.
 
-**transfer events**
-represents one instance of nfc data transfer (transcieve). tracks the payload size, start and end times. used to calculated nfc throughput and error rate.
+- `TransactionStartEvent` - Marks transaction initiation with payload context
+- `TransactionErrorEvent` - Records transaction failures with error details
+- `TransactionCancelEvent` - Logs cancellations with reason categorization (TIMEOUT, MANUAL)
+- `TransactionDoneEvent` - Confirms successful transaction completion
 
-etc.
+**Transaction Checkpoint Events**:
+Represents granular phases within each transaction for detailed timing analysis. Each checkpoint has a descriptive label (e.g., `create_proposal_block`) to identify bottlenecks and optimize performance.
+
+- `TransactionCheckpointStartEvent` - Phase initiation timestamp
+- `TransactionCheckpointEndEvent` - Phase completion timestamp
+- Utility classes in `TransactionCheckpoint.kt` for convenient usage with try-with-resources pattern
+
+**Transfer Events**:
+Represents individual NFC data transfer instances (transceive operations). Tracks payload sizes, timing, and success rates for throughput calculations.
+
+- `TransferStartEvent` - Records transfer initiation with direction and payload size
+- `TransferDoneEvent` - Logs successful completion with received data size
+- `TransferErrorEvent` - Categorizes failures (TIMEOUT, DISCONNECTED, MALFORMED, IO_ERROR)
+- `TransferCancelledEvent` - Records transfer cancellations
 
 ### UsageEventsDao
-<!-- What is it, how is it used? -->
-defines the queries for creating and retrieving events...
+
+**Purpose**: Room Data Access Object providing type-safe database operations for all benchmark event types.
+
+**Key Features**:
+
+- Suspend functions for non-blocking coroutine-based database operations
+- Comprehensive insert methods for all event types
+- Optimized query methods for benchmark calculations and analytics
+- Bulk operations for data management and clearing
+
+**Query Categories**:
+
+- **Individual Event Retrieval**: Get specific events by transaction/transfer ID
+- **Aggregate Counting**: Count events for success/failure rate calculations
+- **Relationship Queries**: Link transactions to their transfers and checkpoints
+- **Cleanup Operations**: Clear all events or specific event types for testing
 
 ### UsageLogger
 
@@ -86,46 +124,98 @@ UsageLogger.logTransactionDone()
 ```
 
 ### Usage Analytics
-<!-- how are the benchmarsk calculated from the lgos and displayed -->
-UsageBenchmarkCalculator - classes and methods for computing the benchmark rtesults from event logs
-TransactionBreakdown - data classes and methods to prepare the benchmarks for displaying them
-the other ui classes used to show the results
+
+**Purpose**: Comprehensive system for computing benchmark results from event logs and displaying them through interactive visualizations.
+
+**UsageBenchmarkCalculator**:
+Core analytics engine that processes raw event data into meaningful metrics:
+
+- **Transaction Performance**: Success rates, completion times, payload analysis
+- **Transfer Analysis**: Throughput calculations (bytes/ms → kbps), error categorization
+- **Checkpoint Breakdown**: Phase-level timing analysis with percentage allocation
+- **Aggregation Methods**: Maximum, average, and rate calculations across all events
+
+**TransactionBreakdown**:
+Data classes and methods for preparing benchmark results for visualization:
+
+- Individual transaction analysis with checkpoint timing details
+- Average breakdown computation across multiple transactions
+- Percentage calculation for pie chart representation
+- Duration formatting and normalization for UI display
+
+**UI Components**:
+
+- `BenchmarksFragment`: Main dashboard with real-time metric loading
+- `PieChartView`: Custom Android view for transaction phase visualization
+- `LegendAdapter`: RecyclerView adapter for detailed metric display with color coding
+- Error handling and empty state management for robust user experience
 
 ## Experiment Setup
 
-### Realistic usage tests
+### Realistic Usage Tests
 
-1. stable use case (send 0.2 euro) x15
+**Test Environment Setup**:
 
-- it was done live with 2 devices (no emulators)
-- airplane mode turned on
-- keep the receiving phone on the table so its stable
-- put the sending phone on top so its stable until transaction finishes
+- Live testing with 2 physical Android devices (Samsung Galaxy S22+ and Google Pixel 4a)
+- Airplane mode enabled to eliminate network interference
+- Controlled NFC positioning for consistent data collection
 
-2. "quick tap" test x10
-simulates more realisting usage between 2 people
+**Test Cases**:
 
-- same as 1, but the phones are held in the hand at all time
+1. **Stable Use Case** (15 repetitions)
+   - Transaction amount: 0.2 euros
+   - Receiving phone placed stable on table surface
+   - Sending phone positioned on top until transaction completion
+   - Measures baseline performance under optimal conditions
 
-3. "phone moved too fast" test x5
+1. **Quick Tap Test** (10 repetitions)
+   - Simulates realistic person-to-person usage scenarios
+   - Both phones held in hands throughout transaction
+   - Tests performance with natural hand movement and positioning variance
 
-- same general setup as 2
-- except the phones are also quickly swiped to see how easy it is to error it
+1. **Phone Moved Too Fast Test** (5 repetitions)
+   - Same handheld setup as quick tap test
+   - Phones deliberately swiped quickly during transaction
+   - Evaluates error resilience and recovery under challenging conditions
 
-### Data transfer limit testing
+### Data Transfer Limit Testing
 
-1. limit tesing use case (add extra payload bytes to test limits of data transfer)
-execute one transaction with a payload of 1MB, to see how much time it takes to transfer
+**Stress Test Configuration**:
+
+1. **Large Payload Test**
+   - Single transaction with 1MB payload injection
+   - Measures maximum throughput capabilities
+   - Identifies system limitations and thermal constraints
+   - Monitors transaction timeout behavior and device thermal response
 
 ## Results
 
-### Realistic Usage Test Results
-<!-- Here i will add a screenshot of the benchmark results -->
+### Realistic Usage Benchmarks
 
-### Data Transfer Limit Testing
-<!-- Here i will add a video of the transaction crashes -->
-the transaction halted after 2 minutes 30 seconds. phones were overheating.
+![Benchmark Results Dashboard](../images/benchmark_results_dashboard.png)
+
+Figure 1: Benchmark results showing transaction performance metrics and phase breakdown visualization
+
+### Data Transfer Limits
+
+The 1MB payload stress test transaction halted after 2 minutes and 30 seconds due to thermal constraints, with both devices experiencing overheating issues, and the app crashing.
+
+![Large Payload Transfer Video](../videos/large_payload_transfer_test.mp4)
+
+Video 1: Large payload transfer test showing the transfer getting stuck and crashing.
 
 ## Future Work
 
-currently all the logs sre recomputed every time the benchmark screen is opened, which can get laggy if there are a lot of transactions and transfers done. simple improvement would be to cache the values at different checkpoints on every open, to only compute the new logs
+**Performance Optimizations**:
+
+Currently, all benchmark metrics are recomputed every time the benchmark screen is opened, which can become laggy with large datasets of transactions and transfers. A simple improvement would be to implement caching strategies at different checkpoints, computing only new logs since the last cache update.
+
+**Proposed Improvements**:
+
+- **Incremental Computation**: Cache benchmark results and update only with new events
+- **Background Processing**: Pre-compute metrics during idle time for instant dashboard loading
+- **Data Retention Policies**: Implement automatic cleanup of old benchmark data to maintain performance
+- **Real-time Monitoring**: Live dashboard updates during active transactions
+- **Export Functionality**: CSV/JSON export capabilities for external analysis tools
+- **Historical Trends**: Time-series visualization showing performance evolution over time
+- **Alerting System**: Automated notifications for performance degradation or error rate spikes
