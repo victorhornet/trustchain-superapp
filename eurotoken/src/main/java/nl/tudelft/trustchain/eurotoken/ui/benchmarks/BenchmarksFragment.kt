@@ -54,11 +54,15 @@ class BenchmarksFragment : EurotokenBaseFragment(R.layout.fragment_benchmarks) {
 
                     // Prepare pie chart data (excluding "Other" and normalizing to 100%)
                     val pieData = mutableListOf<Pair<String, Double>>()
-                    breakdown.checkpointPercentages.forEach { (name, percentage) ->
-                        pieData.add(name to percentage)
-                    }
-                    if (breakdown.otherPercentage > 0) {
-                        pieData.add("Other" to breakdown.otherPercentage)
+                    val checkpointPercentages = breakdown.checkpointPercentages
+                    val totalCheckpointPercentage = checkpointPercentages.sumOf { it.second }
+                    
+                    // Normalize percentages to make them add up to 100% for the pie chart
+                    if (totalCheckpointPercentage > 0) {
+                        checkpointPercentages.forEach { (name, percentage) ->
+                            val normalizedPercentage = (percentage / totalCheckpointPercentage) * 100.0
+                            pieData.add(name to normalizedPercentage)
+                        }
                     }
                     binding.pieChartTransactionBreakdown.setData(pieData)
 
