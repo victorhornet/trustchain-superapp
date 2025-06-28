@@ -7,6 +7,8 @@ The superapp contains a fully functional digital cash implementation, still expe
 
 ### Implementation
 
+EuroToken supports offline NFC transactions using Host Card Emulation (HCE) and custom APDU chunking protocols - see [NFC transfers documentation](docs/nfc_transfers.md) for technical details.
+
 ### Benchmarks
 
 NFC usage data is logged and stored locally to allow for benchmark calculation.
