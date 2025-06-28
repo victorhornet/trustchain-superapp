@@ -49,6 +49,9 @@ graph TB
 ## NFC Offline Transfer
 https://drive.google.com/file/d/1CcauB_vsr80uB4u0jTdKbobTCCXSvXE5/view?usp=sharing
 
+## NFC Eventual Block Synchronization
+https://drive.google.com/file/d/1FB_oPv7ptMnyK5lK_DRL_F5_0A9Pk_qz/view?usp=sharing
+
 ## Design Decisions
 
 ### 1. **Host Card Emulation (HCE) Architecture**
