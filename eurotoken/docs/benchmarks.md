@@ -257,17 +257,17 @@ UsageLogger.logTransferDone(receivedData?.size)
 
 ### Realistic Usage Benchmarks
 
-![Benchmark Results Dashboard](../images/benchmark_results_dashboard.png)
+#### Figure 1: Benchmark results showing transaction performance metrics and phase breakdown visualization
 
-Figure 1: Benchmark results showing transaction performance metrics and phase breakdown visualization
+![Benchmark Results Dashboard](../images/benchmark_results_dashboard.png)
 
 ### Data Transfer Limits
 
 The 1MB payload stress test transaction halted after 2 minutes and 30 seconds due to thermal constraints, with both devices experiencing overheating issues, and the app crashing.
 
-![Large Payload Transfer Video](../videos/large_payload_transfer_test.mp4)
+#### Video 1: Large payload transfer test showing the transfer getting stuck and crashing
 
-Video 1: Large payload transfer test showing the transfer getting stuck and crashing.
+<video src="../videos/data_transfer_stress_test.mp4" width="320" controls></video>
 
 ## Future Work
 
