@@ -27,11 +27,11 @@ import java.util.*
  */
 class VouchesFragment : EurotokenBaseFragment(R.layout.fragment_vouches) {
     private val binding by viewBinding(FragmentVouchesBinding::bind)
-    
+
     private val vouchStore by lazy {
         VouchStore.getInstance(requireContext())
     }
-    
+
     private val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
     private lateinit var pagerAdapter: VouchPagerAdapter
 
@@ -69,10 +69,10 @@ class VouchesFragment : EurotokenBaseFragment(R.layout.fragment_vouches) {
     private fun refreshTotalVouched() {
         lifecycleScope.launchWhenResumed {
             // Update total vouched amount (only own vouches)
-            val totalAmount = vouchStore.getTotalVouchedAmount()
+            val totalAmount = vouchStore.getTotalOwnVouchedAmount()
             val totalInEuros = totalAmount / 100.0
             binding.txtTotalVouched.text = String.format("Total Vouched: €%.2f", totalInEuros)
-            
+
             delay(100L)
         }
     }
@@ -83,7 +83,7 @@ class VouchesFragment : EurotokenBaseFragment(R.layout.fragment_vouches) {
         if (currentFragment is VouchListFragment) {
             currentFragment.refreshVouches()
         }
-        
+
         // Also refresh the other tab if it exists
         val otherIndex = if (binding.viewPager.currentItem == 0) 1 else 0
         val otherFragment = childFragmentManager.findFragmentByTag("f$otherIndex")
@@ -95,14 +95,14 @@ class VouchesFragment : EurotokenBaseFragment(R.layout.fragment_vouches) {
     private fun showCreateVouchDialog() {
         val dialogView = layoutInflater.inflate(R.layout.dialog_create_vouch, null)
         val dialogBinding = DialogCreateVouchBinding.bind(dialogView)
-        
+
         // Get trust scores for the spinner
         val trustScores = trustStore.getAllScores()
         if (trustScores.isEmpty()) {
             Toast.makeText(requireContext(), "No trusted users found. Complete some transactions first.", Toast.LENGTH_LONG).show()
             return
         }
-        
+
         // Create adapter for user selection
         val userDisplayNames = trustScores.map { trustScore ->
             val pubKeyHex = trustScore.pubKey.toHex()
@@ -111,14 +111,14 @@ class VouchesFragment : EurotokenBaseFragment(R.layout.fragment_vouches) {
         val userAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, userDisplayNames)
         userAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         dialogBinding.spinnerUsers.adapter = userAdapter
-        
+
         var selectedDate: Date? = null
-        
+
         // Date picker for expiry date
         dialogBinding.btnSelectDate.setOnClickListener {
             val calendar = Calendar.getInstance()
             calendar.add(Calendar.MONTH, 1) // Default to 1 month from now
-            
+
             val datePickerDialog = DatePickerDialog(
                 requireContext(),
                 { _, year, month, dayOfMonth ->
@@ -130,28 +130,28 @@ class VouchesFragment : EurotokenBaseFragment(R.layout.fragment_vouches) {
                 calendar.get(Calendar.MONTH),
                 calendar.get(Calendar.DAY_OF_MONTH)
             )
-            
+
             // Set minimum date to tomorrow
             val tomorrow = Calendar.getInstance()
             tomorrow.add(Calendar.DAY_OF_MONTH, 1)
             datePickerDialog.datePicker.minDate = tomorrow.timeInMillis
-            
+
             datePickerDialog.show()
         }
-        
+
         val dialog = AlertDialog.Builder(requireContext())
             .setView(dialogView)
             .create()
-        
+
         dialogBinding.btnCancel.setOnClickListener {
             dialog.dismiss()
         }
-        
+
         dialogBinding.btnCreate.setOnClickListener {
             val selectedUserIndex = dialogBinding.spinnerUsers.selectedItemPosition
             val amountText = dialogBinding.etAmount.text.toString()
             val description = dialogBinding.etDescription.text.toString().trim()
-            
+
             when {
                 selectedUserIndex < 0 || selectedUserIndex >= trustScores.size -> {
                     Toast.makeText(requireContext(), "Please select a user", Toast.LENGTH_SHORT).show()
@@ -169,10 +169,10 @@ class VouchesFragment : EurotokenBaseFragment(R.layout.fragment_vouches) {
                             Toast.makeText(requireContext(), "Amount must be greater than 0", Toast.LENGTH_SHORT).show()
                             return@setOnClickListener
                         }
-                        
+
                         val selectedTrustScore = trustScores[selectedUserIndex]
                         val amountInCents = (amount * 100).toLong()
-                        
+
                         val vouch = Vouch(
                             vouchedForPubKey = selectedTrustScore.pubKey,
                             amount = amountInCents,
@@ -181,12 +181,12 @@ class VouchesFragment : EurotokenBaseFragment(R.layout.fragment_vouches) {
                             description = description,
                             isActive = true
                         )
-                        
+
                         vouchStore.addVouch(vouch)
                         refreshTotalVouched()
                         refreshTabContents()
                         dialog.dismiss()
-                        
+
                         Toast.makeText(requireContext(), "Vouch created successfully!", Toast.LENGTH_SHORT).show()
                     } catch (e: NumberFormatException) {
                         Toast.makeText(requireContext(), "Please enter a valid amount", Toast.LENGTH_SHORT).show()
@@ -194,7 +194,7 @@ class VouchesFragment : EurotokenBaseFragment(R.layout.fragment_vouches) {
                 }
             }
         }
-        
+
         dialog.show()
     }
-} 
+}
