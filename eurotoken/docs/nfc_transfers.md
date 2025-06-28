@@ -243,7 +243,7 @@ flowchart TD
 
 #### Video 1: User sending money through NFC
 
-<video src="../videos/sender_usage_flow.mp4" width="320" controls></video>
+https://github.com/user-attachments/assets/70a008fc-2280-451c-ba32-b2053eba4c0c
 
 ### Receiving Money via NFC
 
@@ -269,7 +269,7 @@ flowchart TD
 
 #### Video 2: User receiving money through NFC
 
-<video src="../videos/receiver_usage_flow.mp4" width="320" controls></video>
+https://github.com/user-attachments/assets/e37e2699-ea6e-4729-a9cc-31155d325aea
 
 ## Error Handling
 
