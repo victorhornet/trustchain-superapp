@@ -46,6 +46,9 @@ graph TB
     class M,N,O,P data
 ```
 
+## NFC Offline Transfer
+https://drive.google.com/file/d/1CcauB_vsr80uB4u0jTdKbobTCCXSvXE5/view?usp=sharing
+
 ## Design Decisions
 
 ### 1. **Host Card Emulation (HCE) Architecture**
