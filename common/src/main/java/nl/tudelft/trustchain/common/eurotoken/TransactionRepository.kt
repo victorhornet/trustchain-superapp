@@ -351,7 +351,7 @@ class TransactionRepository(
             // we need to track it in our sync table
             try {
                 val blockHash = block.calculateHash().toHex()
-                val hasConnectedPeers = trustChainCommunity.getPeers().isNotEmpty()
+//                val hasConnectedPeers = trustChainCommunity.getPeers().isNotEmpty()
 
                 val initialStatus = "Pending"
 
