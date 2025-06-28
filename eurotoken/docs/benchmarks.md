@@ -267,7 +267,7 @@ The 1MB payload stress test transaction halted after 2 minutes and 30 seconds du
 
 #### Video 1: Large payload transfer test showing the transfer getting stuck and crashing
 
-<video src="../videos/data_transfer_stress_test.mp4" width="320" controls></video>
+https://github.com/user-attachments/assets/be3d713c-f5d7-4775-beeb-99bec8359864
 
 ## Future Work
 
