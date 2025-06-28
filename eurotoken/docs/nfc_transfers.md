@@ -241,6 +241,10 @@ flowchart TD
     K --> H
 ```
 
+#### Video 1: User sending money through NFC
+
+<video src="../videos/sender_usage_flow.mp4" width="320" controls></video>
+
 ### Receiving Money via NFC
 
 ```mermaid
@@ -262,6 +266,10 @@ flowchart TD
     J --> G
     M --> G
 ```
+
+#### Video 2: User receiving money through NFC
+
+<video src="../videos/receiver_usage_flow.mp4" width="320" controls></video>
 
 ## Error Handling
 
