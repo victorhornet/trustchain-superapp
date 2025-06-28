@@ -13,7 +13,6 @@ import nl.tudelft.ipv8.attestation.trustchain.validation.ValidationResult
 import nl.tudelft.ipv8.keyvault.PublicKey
 import nl.tudelft.ipv8.keyvault.defaultCryptoProvider
 import nl.tudelft.ipv8.util.hexToBytes
-import nl.tudelft.ipv8.util.toHex
 import nl.tudelft.trustchain.common.bitcoin.WalletService
 import nl.tudelft.trustchain.common.eurotoken.blocks.EuroTokenCheckpointValidator
 import nl.tudelft.trustchain.common.eurotoken.blocks.EuroTokenDestructionValidator
@@ -25,16 +24,394 @@ import org.bitcoinj.wallet.SendRequest
 import nl.tudelft.trustchain.common.util.TrustChainHelper
 import java.lang.Math.abs
 import java.math.BigInteger
+import java.util.SortedMap
+import nl.tudelft.ipv8.attestation.trustchain.payload.HalfBlockPayload
+import nl.tudelft.ipv8.attestation.trustchain.TrustChainBlock
+import android.content.Context
+import java.util.Date
+import nl.tudelft.trustchain.common.eurotoken.benchmarks.OfflineBlockSyncDao
+import nl.tudelft.trustchain.common.eurotoken.benchmarks.OfflineBlockSyncState
+import nl.tudelft.trustchain.common.eurotoken.worker.SyncWorker
 
 class TransactionRepository(
     val trustChainCommunity: TrustChainCommunity,
-    val gatewayStore: GatewayStore
+    val gatewayStore: GatewayStore,
+    private val offlineBlockSyncDao: OfflineBlockSyncDao? = null,
+    private val context: Context? = null
 ) {
     private val scope = CoroutineScope(Dispatchers.IO)
 
     fun getGatewayPeer(): Peer? {
         return gatewayStore.getPreferred().getOrNull(0)?.peer
     }
+
+    /*
+      creates a transfer proposal block WITHOUT sending it over the network
+     */
+    fun createNfcTransferProposal(recipientKey: ByteArray, amount: Long): TrustChainBlock? {
+        val balance1 = getMyBalance()
+        val verifiedBalance = getMyVerifiedBalance()
+
+        Log.e("TransactionRepository", "balance traditional: $balance1 balanceverified: $verifiedBalance")
+        if (getMyVerifiedBalance() - amount < 0) {
+            Log.e("TransactionRepository", "Insufficient balance. Need: $amount")
+            return null
+        }
+        Log.d("TransactionRepository", "Creating offline proposal: amount=$amount")
+
+        // had to change in the same way as the validator does it
+        // otherwise annoying errors in balalance verification/discrepancies
+        val myPublicKey = trustChainCommunity.myPeer.publicKey.keyToBin()
+        val latestBlock = trustChainCommunity.database.getLatest(myPublicKey)
+
+        val previousBalance = if (latestBlock != null) {
+            getBalanceForBlock(latestBlock, trustChainCommunity.database) ?: run {
+                Log.e("TransactionRepository", "Could not get balance from latest block")
+                return null
+            }
+        } else {
+            // Genesis case
+            initialBalance
+        }
+
+        val newBalance = previousBalance - amount
+
+        Log.d("TransactionRepository", "Previous balance: $previousBalance, new balance: $newBalance")
+
+        val transaction = mapOf(
+            KEY_AMOUNT to BigInteger.valueOf(amount),
+            KEY_BALANCE to newBalance,
+            "offline" to true
+        )
+
+        Log.d("NFC_DEBUG_SENDER", "Data for Proposal Creation: $transaction")
+
+        return try {
+            // In contrast to transferproposal we create the block but dont actually send it
+            val block = trustChainCommunity.createProposalBlock(
+                BLOCK_TYPE_TRANSFER,
+                transaction,
+                recipientKey
+            )
+
+            val dataToSign = block.calculateHash()
+            Log.d("SignatureCreation", "--- SIGNATURE CREATION ---")
+            Log.d("SignatureCreation", "Block ID: ${block.blockId}")
+            Log.d("SignatureCreation", "Data to be Signed (toHex): ${dataToSign.toHex()}")
+            Log.d("SignatureCreation", "Signature (toHex):         ${block.signature.toHex()}")
+            Log.d("SignatureCreation", "Public Key (toHex):        ${block.publicKey.toHex()}")
+            Log.d("SignatureCreation", "---------------------------")
+
+            Log.d("TransactionRepository", "Created proposal block: ${block.blockId}")
+            block
+        } catch (e: RuntimeException) {
+            Log.e("TransactionRepository", "Failed to create proposal block due to validation error", e)
+            null
+        }
+    }
+
+    /*
+      creates an agreement block for a received proposal WITHOUT sending it over the network.
+
+     */
+    fun createAgreementBlock(proposalBlock: TrustChainBlock): TrustChainBlock? {
+        try {
+            // validate the proposal
+            if (proposalBlock.type != BLOCK_TYPE_TRANSFER) {
+                Log.e("createAgreementBlock", "Invalid block type: ${proposalBlock.type}")
+                return null
+            }
+
+            if (!proposalBlock.transaction.containsKey(KEY_AMOUNT)) {
+                Log.e("createAgreementBlock", "Proposal missing amount")
+                return null
+            }
+
+            // create the agreement block
+            val agreementBlock = trustChainCommunity.createAgreementBlock(
+                proposalBlock,
+                proposalBlock.transaction
+            )
+
+            Log.d("createAgreementBlock", "Successfully created agreement block")
+            return agreementBlock
+        } catch (e: Exception) {
+            Log.e("createAgreementBlock", "Failed to create agreement block", e)
+            return null
+        }
+    }
+
+    // returns either synced / syncing / pending
+    // necessary for eventual stransactionitemrenderer, ui
+    // syncworker
+    suspend fun getTransactionStatus(blockHash: String): String {
+        val syncState = offlineBlockSyncDao?.getSyncState(blockHash)
+        return when {
+            syncState == null -> "Unknown"
+            syncState.isSynced -> "Synced"
+            syncState.status == "Offline" && isNetworkAvailable() -> {
+                offlineBlockSyncDao?.updateSyncState(syncState.copy(status = "Pending"))
+                "Pending"
+            }
+            else -> syncState.status
+        }
+    }
+
+    private fun isNetworkAvailable(): Boolean {
+        // connnected -> if we have peers
+        return trustChainCommunity.getPeers().isNotEmpty()
+    }
+
+    // before creating an agreement block we have to ensure that the proposal block is valid
+    fun validateTransferProposal(
+        proposalBlock: TrustChainBlock,
+        expectedAmount: Long,
+        expectedRecipient: ByteArray
+    ): Boolean {
+        // check block type
+        if (proposalBlock.type != BLOCK_TYPE_TRANSFER) {
+            Log.e("TransactionRepository", "Invalid block type: ${proposalBlock.type}")
+            return false
+        }
+
+        // shouldnt be an agreement
+        if (!proposalBlock.isProposal) {
+            Log.e("TransactionRepository", "Block is not a proposal")
+            return false
+        }
+
+        // check amount
+        val blockAmount = (proposalBlock.transaction[KEY_AMOUNT] as? BigInteger)?.toLong()
+        if (blockAmount != expectedAmount) {
+            Log.e("TransactionRepository", "Amount mismatch: expected=$expectedAmount, actual=$blockAmount")
+            return false
+        }
+
+        // check recipient
+        if (!proposalBlock.linkPublicKey.contentEquals(expectedRecipient)) {
+            Log.e("TransactionRepository", "Recipient mismatch")
+            return false
+        }
+
+        // verify signature
+        if (!validateBlockSignature(proposalBlock)) {
+            Log.e("TransactionRepository", "Invalid block signature")
+            return false
+        }
+
+        Log.d("TransactionRepository", "Proposal validation successful")
+        return true
+    }
+
+    // lets attempt to broadcast all blocks that are marked as unsynced in the database
+    // called by syncworker if periodic background exec
+    // we find recipients and send their blocks
+    fun syncOfflineTransactions() {
+        scope.launch {
+            val unsyncedHashes = offlineBlockSyncDao?.getUnsyncedBlockHashes() ?: run {
+                Log.d("Repo/Sync", "No DAO available for sync")
+                return@launch
+            }
+
+            if (unsyncedHashes.isEmpty()) {
+                Log.d("Repo/Sync", "No unsynced blocks found")
+                return@launch
+            }
+
+            Log.d("Repo/Sync", "Found ${unsyncedHashes.size} unsynced blocks. Starting sync...")
+
+            var successCount = 0
+            var failureCount = 0
+
+            for (hash in unsyncedHashes) {
+                try {
+                    // we are syncing
+                    offlineBlockSyncDao.updateSyncState(OfflineBlockSyncState(hash, "Syncing"))
+
+                    val block = trustChainCommunity.database.getBlockWithHash(hash.hexToBytes())
+                    if (block == null) {
+                        Log.w("Repo/Sync", "Block $hash not found in DB. Marking as synced to ignore.")
+                        offlineBlockSyncDao.markAsSynced(hash)
+                        successCount++
+                        continue
+                    }
+
+                    val peer = findPeerForBlock(block)
+
+                    if (peer != null) {
+                        Log.d("Repo/Sync", "Sending block ${block.blockId} to peer")
+                        trustChainCommunity.sendBlock(block, peer)
+
+                        // got race conditions
+                        // so for more reliability we wait a bit
+                        delay(500)
+
+                        // Mark as synced on successful send
+                        offlineBlockSyncDao.markAsSynced(hash)
+                        Log.i("Repo/Sync", "Successfully synced block: $hash")
+                        successCount++
+
+                        // notifyTransactionUpdate()
+                        // already polled in transactionsfragment
+                        // TODO would be nicer, no priority for now
+                    } else {
+                        // no peer found? mark as pending
+                        offlineBlockSyncDao.updateSyncState(OfflineBlockSyncState(hash, "Pending"))
+                        Log.w("Repo/Sync", "Peer for block $hash not found. Will retry later.")
+                        failureCount++
+                    }
+                } catch (e: Exception) {
+                    Log.e("Repo/Sync", "Error syncing block $hash", e)
+                    // error? mark as pending
+                    offlineBlockSyncDao.updateSyncState(OfflineBlockSyncState(hash, "Pending"))
+                    failureCount++
+                }
+            }
+
+            Log.d("Repo/Sync", "Sync completed: $successCount successful, $failureCount failed")
+
+            if (failureCount == 0) {
+                Log.d("Repo/Sync", "All blocks synced successfully")
+            }
+        }
+    }
+
+    private fun findPeerForBlock(block: TrustChainBlock): Peer? {
+        val targetPublicKey = when {
+            block.isProposal -> {
+                Log.d("Repo/Sync", "Block is proposal, targeting recipient: ${block.linkPublicKey.toHex().take(8)}...")
+                block.linkPublicKey
+            }
+            block.isAgreement -> {
+                Log.d("Repo/Sync", "Block is agreement, targeting proposer: ${block.publicKey.toHex().take(8)}...")
+                block.publicKey
+            }
+            else -> {
+                Log.w("Repo/Sync", "Unknown block type for syncing")
+                return null
+            }
+        }
+
+        // lets look for peers in the trustchain
+        val connectedPeer = trustChainCommunity.getPeers()
+            .find { it.publicKey.keyToBin().contentEquals(targetPublicKey) }
+
+        if (connectedPeer != null) {
+            Log.d("Repo/Sync", "Found target peer in connected peers")
+            return connectedPeer
+        }
+
+        // found so creating peer
+        return try {
+            val key = defaultCryptoProvider.keyFromPublicBin(targetPublicKey)
+            val peer = Peer(key)
+            Log.d("Repo/Sync", "Created peer from public key for discovery")
+            peer
+        } catch (e: Exception) {
+            Log.e("Repo/Sync", "Could not create peer from public key", e)
+            null
+        }
+    }
+
+    fun serializeBlock(block: TrustChainBlock): ByteArray {
+        val payload = HalfBlockPayload.fromHalfBlock(block, sign = true)
+        return payload.serialize()
+    }
+
+    fun deserializeBlock(data: ByteArray): TrustChainBlock? {
+        return try {
+            val (payload, _) = HalfBlockPayload.deserialize(data)
+            TrustChainBlock(
+                type = payload.blockType,
+                rawTransaction = payload.transaction,
+                publicKey = payload.publicKey,
+                sequenceNumber = payload.sequenceNumber.toUInt(),
+                linkPublicKey = payload.linkPublicKey,
+                linkSequenceNumber = payload.linkSequenceNumber.toUInt(),
+                previousHash = payload.previousHash,
+                signature = payload.signature,
+                timestamp = Date(payload.timestamp.toLong())
+            )
+        } catch (e: Exception) {
+            Log.e("TransactionRepository", "Failed to deserialize block", e)
+            null
+        }
+    }
+
+    // lets store in db
+    fun storeOfflineBlock(block: TrustChainBlock) {
+        scope.launch {
+            try {
+                trustChainCommunity.database.addBlock(block)
+                Log.d("Repo/Offline", "Stored offline block: ${block.blockId}")
+            } catch (e: android.database.sqlite.SQLiteConstraintException) {
+                Log.d("Repo/Offline", "Block already exists: ${block.blockId}")
+            }
+
+            // we need to track it in our sync table
+            try {
+                val blockHash = block.calculateHash().toHex()
+//                val hasConnectedPeers = trustChainCommunity.getPeers().isNotEmpty()
+
+                val initialStatus = "Pending"
+
+                val syncState = OfflineBlockSyncState(
+                    blockHash = blockHash,
+                    status = initialStatus,
+                    isSynced = false
+                )
+                offlineBlockSyncDao?.insertSyncState(syncState)
+                Log.d("Repo/Offline", "Created sync tracking record with status: $initialStatus")
+
+                // immediate sync and schedule periodic sync
+                // no null pointer exception here, since context is not null
+                // fixes errors
+                if (context != null) {
+                    SyncWorker.scheduleImmediateSync(context)
+                    SyncWorker.schedulePeriodicSync(context)
+                }
+            } catch (e: Exception) {
+                Log.w("Repo/Offline", "Sync state may already exist", e)
+            }
+        }
+    }
+
+    private fun validateBlockSignature(block: TrustChainBlock): Boolean {
+        Log.d("NFC_DEBUG_RECEIVER", "--- Block Data Before Verification ---")
+        Log.d("NFC_DEBUG_RECEIVER", "Block Type: ${block.type}, Seq: ${block.sequenceNumber}")
+        Log.d("NFC_DEBUG_RECEIVER", "Transaction: ${block.transaction}")
+        Log.d("NFC_DEBUG_RECEIVER", "Public Key: ${block.publicKey.toHex()}")
+        Log.d("NFC_DEBUG_RECEIVER", "Link Public Key: ${block.linkPublicKey.toHex()}")
+        Log.d("NFC_DEBUG_RECEIVER", "Previous Hash: ${block.previousHash.toHex()}")
+        Log.d("NFC_DEBUG_RECEIVER", "Timestamp: ${block.timestamp.time}")
+
+        try {
+            val payload = HalfBlockPayload.fromHalfBlock(block, false).serialize()
+            Log.d("NFC_DEBUG_RECEIVER", "ACTUAL DATA TO VERIFY (Hex): ${payload.toHex()}")
+            Log.d("NFC_DEBUG_RECEIVER", "SIGNATURE TO VERIFY (Hex): ${block.signature.toHex()}")
+            Log.d("NFC_DEBUG_RECEIVER", "--------------------------------------")
+
+            val key = defaultCryptoProvider.keyFromPublicBin(block.publicKey)
+            val isValid = key.verify(block.signature, payload)
+
+            if (!isValid) {
+                Log.e("SignatureValidation", "--- SIGNATURE VALIDATION FAILED ---")
+                Log.e("SignatureValidation", "Block ID: ${block.blockId}")
+                Log.e("SignatureValidation", "Block Type: ${block.type}, SeqNum: ${block.sequenceNumber}")
+                Log.e("SignatureValidation", "Actual Signed Data (toHex): ${payload.toHex()}")
+                Log.e("SignatureValidation", "Signature (toHex):   ${block.signature.toHex()}")
+                Log.e("SignatureValidation", "Public Key (toHex):  ${block.publicKey.toHex()}")
+                Log.e("SignatureValidation", "------------------------------------")
+            }
+
+            return isValid
+        } catch (e: Exception) {
+            Log.e("SignatureValidation", "Exception during signature validation", e)
+            return false
+        }
+    }
+
+    private fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }
 
     private fun getBalanceChangeForBlock(block: TrustChainBlock?): Long {
         if (block == null) return 0
@@ -183,17 +560,38 @@ class TransactionRepository(
         database: TrustChainStore
     ): Long? {
         if (block == null) {
-            Log.d("getBalanceForBlock", "Found null block!")
-            return null
+//            Log.d("getBalanceForBlock", "Found null block!")
+            Log.e("getBalanceForBlock", "FATAL: getBalanceForBlock called with null. Returning initial balance.")
+            // temporary fix, should be readjusted#TODO
+//            return null
+            return initialBalance
         } // Missing block
         Log.d("getBalanceForBlock", "Found block with ID: ${block.blockId}")
+
+        // helper function to get previousBalance instead of NULL
+        fun getPreviousBalance(currentBlock: TrustChainBlock): Long? {
+            val previousBlock = database.getBlockWithHash(currentBlock.previousHash)
+            if (previousBlock == null) {
+                Log.w("getBalanceForBlock", "Could not find previous block for block with Seq: ${currentBlock.sequenceNumber}.")
+                if (currentBlock.isGenesis) {
+                    Log.i("getBalanceForBlock", "This is the GENESIS block. Traversal finished as expected.")
+                } else {
+                    Log.e("getBalanceForBlock", "This is NOT genesis. The local blockchain is BROKEN.")
+                }
+                return initialBalance
+            }
+            return getBalanceForBlock(previousBlock, database)
+        }
+
         if (!EUROTOKEN_TYPES.contains(block.type)) {
-            return getBalanceForBlock(
-                database.getBlockWithHash(
-                    block.previousHash
-                ),
-                database
-            )
+//            return getBalanceForBlock(
+//                database.getBlockWithHash(
+//                    block.previousHash
+//                ),
+//                database
+//            )
+            // readjusted #TODO change back
+            return getPreviousBalance(block)
         }
         return if ( // block contains balance (base case)
             (
@@ -215,12 +613,18 @@ class TransactionRepository(
             if (block.isGenesis) {
                 return initialBalance + (block.transaction[KEY_AMOUNT] as BigInteger).toLong()
             }
-            getBalanceForBlock(database.getBlockWithHash(block.previousHash), database)?.plus(
+//            getBalanceForBlock(database.getBlockWithHash(block.previousHash), database)?.plus(
+//                (block.transaction[KEY_AMOUNT] as BigInteger).toLong()
+//            )
+            // readjusted #TODO
+            getPreviousBalance(block)?.plus(
                 (block.transaction[KEY_AMOUNT] as BigInteger).toLong()
             )
         } else {
             // bad type that shouldn't exist, for now just ignore and return for next
-            getBalanceForBlock(database.getBlockWithHash(block.previousHash), database)
+//            getBalanceForBlock(database.getBlockWithHash(block.previousHash), database)
+            // readjusted #TODO
+            getPreviousBalance(block)
         }
     }
 
@@ -273,21 +677,64 @@ class TransactionRepository(
         recipient: ByteArray,
         amount: Long
     ): TrustChainBlock? {
-        Log.d("sendTransferProposalSyn", "sending amount: $amount")
+        // CAUSED A validation conflict recalculates the balance
+//        if (getMyBalance() - amount < 0) {
+//            return null
+//        }
 
-        if (getMyBalance() - amount < 0) {
+        val currentBalance = getMyBalance()
+        val newBalance = currentBalance - amount
+
+        Log.d("sendTransferProposalSync", "sending amount: $amount")
+
+        if (currentBalance < amount) {
+            Log.e("BlockCreateDebug", "Insufficient balance. Have: $currentBalance, Need: $amount")
             return null
         }
-        val transaction =
-            mapOf(
-                KEY_AMOUNT to BigInteger.valueOf(amount),
-                KEY_BALANCE to (BigInteger.valueOf(getMyBalance() - amount).toLong())
-            )
-        return trustChainCommunity.createProposalBlock(
-            BLOCK_TYPE_TRANSFER,
-            transaction,
-            recipient
+
+        val transaction: SortedMap<String, Any> = sortedMapOf(
+            KEY_AMOUNT to BigInteger.valueOf(amount),
+            KEY_BALANCE to newBalance
         )
+
+        Log.d("NFC-DEBUG", "Transaction data to be signed: $transaction")
+
+        Log.d("BlockCreateDebug", "==================================================")
+        Log.d("BlockCreateDebug", "---- Attempting to create new transaction block ----")
+        Log.d("BlockCreateDebug", "Current Wallet Balance: $currentBalance")
+        Log.d("BlockCreateDebug", "Transaction Amount: $amount")
+        Log.d("BlockCreateDebug", "New Calculated Balance: $newBalance")
+        Log.d("BlockCreateDebug", "Recipient Public Key (Hex): ${recipient.toHex()}")
+        Log.d("BlockCreateDebug", "Transaction Data Map to be signed: $transaction")
+
+        val latestBlock = trustChainCommunity.database.getLatest(trustChainCommunity.myPeer.publicKey.keyToBin())
+        if (latestBlock != null) {
+            Log.d("BlockCreateDebug", "Latest own block (previous block) info:")
+            Log.d("BlockCreateDebug", "  - Sequence #: ${latestBlock.sequenceNumber}")
+            Log.d("BlockCreateDebug", "  - Hash (Hex): ${latestBlock.calculateHash().toHex()}")
+            Log.d("BlockCreateDebug", "  - Type: ${latestBlock.type}")
+        } else {
+            Log.w("BlockCreateDebug", "Could not find any previous blocks for self. This will be a genesis block.")
+        }
+        Log.d("BlockCreateDebug", "Calling 'createProposalBlock' NOW...")
+        Log.d("BlockCreateDebug", "==================================================")
+
+        // crash happens somewhere here
+        try {
+            return trustChainCommunity.createProposalBlock(
+                BLOCK_TYPE_TRANSFER,
+                transaction,
+                recipient
+            )
+        } catch (e: Exception) {
+            Log.e("BlockCreateDebug", "CRITICAL ERROR in createProposalBlock: ${e.message}", e)
+            throw e
+        }
+//        return trustChainCommunity.createProposalBlock(
+//            BLOCK_TYPE_TRANSFER,
+//            transaction,
+//            recipient
+//        )
     }
 
     fun verifyBalanceAvailable(
@@ -512,9 +959,15 @@ class TransactionRepository(
 
     fun getTransactions(limit: Int = 1000): List<Transaction> {
         val myKey = trustChainCommunity.myPeer.publicKey.keyToBin()
+//        val unsyncedHashes = runBlocking {
+//            offlineBlockSyncDao?.getUnsyncedBlockHashes() ?: emptyList()
+//        }.toSet()
         return trustChainCommunity.database.getLatestBlocks(myKey, limit)
             .filter { block: TrustChainBlock -> EUROTOKEN_TYPES.contains(block.type) }
             .map { block: TrustChainBlock ->
+                val blockHash = block.calculateHash().toHex()
+//                val isUnsynced = unsyncedHashes.contains(blockHash)
+                val syncStatus = runBlocking { getTransactionStatus(blockHash) }
                 val sender = defaultCryptoProvider.keyFromPublicBin(block.publicKey)
                 Transaction(
                     block,
@@ -527,7 +980,10 @@ class TransactionRepository(
                     },
                     block.type,
                     getBalanceChangeForBlock(block) < 0,
-                    block.timestamp
+                    block.timestamp,
+//                    isOffline = isUnsynced,
+//                    isSynced = !isUnsynced
+                    syncStatus = syncStatus
                 )
             }
     }
@@ -564,7 +1020,8 @@ class TransactionRepository(
                     },
                     block.type,
                     getBalanceChangeForBlock(block) < 0,
-                    block.timestamp
+                    block.timestamp,
+                    syncStatus = "Synced" // Set to Synced for online transactions
                 )
             }
             .toList()
@@ -614,7 +1071,8 @@ class TransactionRepository(
                     },
                     block.type,
                     getBalanceChangeForBlock(block) < 0,
-                    block.timestamp
+                    block.timestamp,
+                    syncStatus = "Synced" // Set to Synced for online transactions
                 )
             }
             .toList()
@@ -1263,7 +1721,6 @@ class TransactionRepository(
         const val KEY_TRANSACTION_HASH = "transaction_hash"
         const val KEY_PAYMENT_ID = "payment_id"
         const val KEY_IBAN = "iban"
-
         var initialBalance: Long = 0
     }
 }

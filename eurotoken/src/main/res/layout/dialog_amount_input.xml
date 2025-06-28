@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="How much would you like to receive?"
+        android:textColor="@color/text_secondary" />
+
+    <EditText
+        android:id="@+id/edtDialogAmount"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:gravity="center"
+        android:hint="€0.00"
+        android:inputType="numberDecimal"
+        android:textSize="48sp"
+        android:textStyle="bold"
+        android:textColor="@color/primary"
+        android:background="@drawable/rounded_edittext_background"
+        android:padding="16dp"
+        android:imeOptions="actionDone" />
+
+    <TextView
+        android:id="@+id/txtValidation"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:textColor="@color/red"
+        android:visibility="gone"
+        android:text="Amount must be greater than €0.01" />
+
+</LinearLayout>

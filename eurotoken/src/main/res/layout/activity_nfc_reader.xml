@@ -1,65 +1,219 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.coordinatorlayout.widget.CoordinatorLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/nfc_reader_root"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="@color/background">
 
     <androidx.cardview.widget.CardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
-        android:layout_margin="24dp"
-        app:cardCornerRadius="16dp"
-        app:cardElevation="8dp">
+        app:cardCornerRadius="24dp"
+        app:cardElevation="12dp"
+        app:cardBackgroundColor="@android:color/white">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
             android:gravity="center_horizontal"
-            android:padding="24dp">
+            android:orientation="vertical"
+            android:padding="32dp">
+            
+            <ImageView
+                android:id="@+id/headerIcon"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@drawable/ic_nfc"
+                app:tint="@color/primary" />
+            
+            <TextView
+                android:id="@+id/headerTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="@string/payment_in_progress"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_primary"
+                android:gravity="center" />
 
             <ImageView
                 android:id="@+id/iv_nfc_result_icon"
-                android:layout_width="72dp"
-                android:layout_height="72dp"
-                android:visibility="gone" />
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                android:layout_marginTop="24dp"
+                android:visibility="gone"
+                tools:src="@drawable/ic_check_circle"
+                tools:visibility="visible"/>
 
-            <ProgressBar
-                android:id="@+id/progress_spinner"
-                style="?android:attr/progressBarStyleLarge"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:layout_marginTop="16dp" />
+            <FrameLayout
+                android:id="@+id/rippleContainer"
+                android:layout_width="160dp"
+                android:layout_height="160dp"
+                android:layout_marginTop="24dp"
+                android:visibility="visible">
+                
+                <ImageView
+                    android:id="@+id/nfcCenterIcon"
+                    android:layout_width="60dp"
+                    android:layout_height="60dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_nfc"
+                    app:tint="@color/primary"
+                    android:alpha="0.8" />
+                
+                <View
+                    android:id="@+id/ripple1"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/ripple_circle"
+                    android:alpha="0.6" />
+                    
+                <View
+                    android:id="@+id/ripple2"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/ripple_circle"
+                    android:alpha="0.4" />
+                    
+                <View
+                    android:id="@+id/ripple3"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/ripple_circle"
+                    android:alpha="0.2" />
+            </FrameLayout>
 
             <TextView
-                android:id="@+id/tv_reader_status"
+                android:id="@+id/tvReaderStatus"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
-                android:text="Waiting for NFC tap…"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:gravity="center" />
+                android:gravity="center"
+                android:textSize="16sp"
+                android:textColor="@color/text_primary"
+                android:lineSpacingExtra="4dp"
+                tools:text="Hold devices together" />
 
-            <TextView
-                android:id="@+id/tv_reader_result"
+            <androidx.cardview.widget.CardView
+                android:id="@+id/transactionDetailsLayout"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
+                android:layout_marginTop="24dp"
                 android:visibility="gone"
-                android:textSize="16sp"
-                android:gravity="center" />
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="@color/light_gray"
+                tools:visibility="visible">
+                
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp"
+                    android:gravity="center">
+                    
+                    <TextView
+                        android:id="@+id/tvAmount"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textSize="28sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/primary"
+                        tools:text="€12.34"/>
+                        
+                    <TextView
+                        android:id="@+id/tvRecipientName"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:textSize="14sp"
+                        android:textColor="@color/text_secondary"
+                        tools:text="Paying to: Store Name"/>
+                        
+                    <TextView
+                        android:id="@+id/tvRecipientKey"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:fontFamily="monospace"
+                        android:textSize="10sp"
+                        android:textColor="@color/text_secondary"
+                        android:alpha="0.7"
+                        tools:text="pubkey..."/>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
 
-            <Button
-                android:id="@+id/btnConfirm"
+            <TextView
+                android:id="@+id/tvReaderResult"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:gravity="center"
+                android:textSize="14sp"
+                android:textColor="@color/text_secondary"
+                android:lineSpacingExtra="2dp"
+                android:visibility="gone" />
+            
+            <LinearLayout
+                android:id="@+id/progressSteps"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
-                android:visibility="gone"
-                android:text="Confirm" />
+                android:orientation="horizontal"
+                android:gravity="center">
+                
+                <View 
+                    android:id="@+id/step1" 
+                    android:layout_width="8dp" 
+                    android:layout_height="8dp" 
+                    android:layout_marginEnd="8dp"
+                    android:background="@drawable/progress_dot"/>
+                    
+                <View 
+                    android:id="@+id/step2" 
+                    android:layout_width="8dp" 
+                    android:layout_height="8dp" 
+                    android:layout_marginEnd="8dp"
+                    android:background="@drawable/progress_dot"/>
+                    
+                <View 
+                    android:id="@+id/step3" 
+                    android:layout_width="8dp" 
+                    android:layout_height="8dp"
+                    android:background="@drawable/progress_dot"/>
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="32dp"
+                android:orientation="horizontal"
+                android:gravity="center">
+
+                <Button
+                    android:id="@+id/btnCancel"
+                    style="@style/Widget.AppCompat.Button.Borderless"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="16dp"
+                    android:text="Cancel"
+                    android:textAllCaps="false"
+                    android:textSize="14sp" />
+
+                <Button
+                    android:id="@+id/btnConfirm"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Confirm"
+                    android:textAllCaps="false"
+                    android:textSize="14sp"
+                    android:visibility="gone" />
+
+            </LinearLayout>
 
         </LinearLayout>
     </androidx.cardview.widget.CardView>

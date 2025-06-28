@@ -133,6 +133,7 @@ dependencies {
     implementation "androidx.recyclerview:recyclerview:$recyclerview_version"
     implementation "androidx.navigation:navigation-fragment-ktx:$nav_version"
     implementation "androidx.lifecycle:lifecycle-common-java8:$lifecycle_version"
+    implementation "androidx.work:work-runtime-ktx:2.9.0"
 
     // Firebase
     implementation 'com.google.firebase:firebase-analytics:21.2.0'

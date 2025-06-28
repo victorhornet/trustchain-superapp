@@ -1,4 +1,4 @@
-package nl.tudelft.trustchain.eurotoken.benchmarks
+package nl.tudelft.trustchain.common.eurotoken.benchmarks
 
 import android.content.Context
 import androidx.room.Database
@@ -16,14 +16,16 @@ import androidx.room.RoomDatabase
         TransferDoneEvent::class,
         TransferCancelledEvent::class,
         TransactionCheckpointStartEvent::class,
-        TransactionCheckpointEndEvent::class
+        TransactionCheckpointEndEvent::class,
+        OfflineBlockSyncState::class
     ],
-    version = 3, // Increment if schema changes.
+    version = 5, // Increment if schema changes.
     exportSchema = false
 )
 abstract class UsageAnalyticsDatabase : RoomDatabase() {
 
     abstract fun usageEventsDao(): UsageEventsDao
+    abstract fun offlineBlockSyncDao(): OfflineBlockSyncDao
 
     companion object {
         @Volatile

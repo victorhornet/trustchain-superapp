@@ -23,9 +23,10 @@ import nl.tudelft.trustchain.common.contacts.ContactStore
 import nl.tudelft.trustchain.common.eurotoken.GatewayStore
 import nl.tudelft.trustchain.common.eurotoken.TransactionRepository
 import nl.tudelft.trustchain.common.ui.BaseFragment
-import nl.tudelft.trustchain.eurotoken.EuroTokenMainActivity
 import nl.tudelft.trustchain.eurotoken.R
 import nl.tudelft.trustchain.eurotoken.db.TrustStore
+import nl.tudelft.trustchain.common.eurotoken.benchmarks.UsageAnalyticsDatabase
+import nl.tudelft.trustchain.common.eurotoken.EurotokenPreferences
 
 open class EurotokenBaseFragment(contentLayoutId: Int = 0) : BaseFragment(contentLayoutId) {
     protected val logger = KotlinLogging.logger {}
@@ -38,7 +39,8 @@ open class EurotokenBaseFragment(contentLayoutId: Int = 0) : BaseFragment(conten
     }
 
     protected val transactionRepository by lazy {
-        TransactionRepository(getIpv8().getOverlay()!!, gatewayStore)
+        val db = UsageAnalyticsDatabase.getInstance(requireContext())
+        TransactionRepository(getIpv8().getOverlay()!!, gatewayStore, db.offlineBlockSyncDao(), requireContext())
     }
 
     private val contactStore by lazy {
@@ -75,13 +77,16 @@ open class EurotokenBaseFragment(contentLayoutId: Int = 0) : BaseFragment(conten
     }
 
     fun makeMoneyToast() {
-        Toast.makeText(requireContext(), "Money received!", Toast.LENGTH_LONG).show()
+        Toast.makeText(requireContext(), "Payment Confirmed by Recipient!", Toast.LENGTH_LONG).show()
     }
 
     fun playMoneySound() {
         val afd = activity?.assets?.openFd("Coins.mp3") ?: return
         val player = MediaPlayer()
         player.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+        player.setOnCompletionListener {
+            it.release()
+        }
         player.prepare()
         player.start()
     }
@@ -124,11 +129,11 @@ open class EurotokenBaseFragment(contentLayoutId: Int = 0) : BaseFragment(conten
     private fun getDemoModeMenuItemText(): String {
         val pref =
             requireContext().getSharedPreferences(
-                EuroTokenMainActivity.EurotokenPreferences.EUROTOKEN_SHARED_PREF_NAME,
+                EurotokenPreferences.EUROTOKEN_SHARED_PREF_NAME,
                 Context.MODE_PRIVATE
             )
         val demoModeEnabled =
-            pref.getBoolean(EuroTokenMainActivity.EurotokenPreferences.DEMO_MODE_ENABLED, false)
+            pref.getBoolean(EurotokenPreferences.DEMO_MODE_ENABLED, false)
         if (demoModeEnabled) {
             TransactionRepository.initialBalance = 1000
         } else {
@@ -175,14 +180,14 @@ open class EurotokenBaseFragment(contentLayoutId: Int = 0) : BaseFragment(conten
             R.id.toggleDemoMode -> {
                 val sharedPreferences =
                     requireContext().getSharedPreferences(
-                        EuroTokenMainActivity.EurotokenPreferences.EUROTOKEN_SHARED_PREF_NAME,
+                        EurotokenPreferences.EUROTOKEN_SHARED_PREF_NAME,
                         Context.MODE_PRIVATE
                     )
                 val edit = sharedPreferences.edit()
                 edit.putBoolean(
-                    EuroTokenMainActivity.EurotokenPreferences.DEMO_MODE_ENABLED,
+                    EurotokenPreferences.DEMO_MODE_ENABLED,
                     !sharedPreferences.getBoolean(
-                        EuroTokenMainActivity.EurotokenPreferences.DEMO_MODE_ENABLED,
+                        EurotokenPreferences.DEMO_MODE_ENABLED,
                         false
                     )
                 )

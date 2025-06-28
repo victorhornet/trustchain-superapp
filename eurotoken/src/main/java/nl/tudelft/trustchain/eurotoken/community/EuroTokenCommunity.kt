@@ -1,6 +1,7 @@
 package nl.tudelft.trustchain.eurotoken.community
 
 import android.content.Context
+import android.util.Log
 import kotlin.random.Random
 import nl.tudelft.ipv8.Community
 import nl.tudelft.ipv8.IPv4Address
@@ -14,10 +15,11 @@ import nl.tudelft.ipv8.util.toHex
 import nl.tudelft.trustchain.common.eurotoken.GatewayStore
 import nl.tudelft.trustchain.common.eurotoken.Transaction
 import nl.tudelft.trustchain.common.eurotoken.TransactionRepository
-import nl.tudelft.trustchain.eurotoken.EuroTokenMainActivity.EurotokenPreferences.DEMO_MODE_ENABLED
-import nl.tudelft.trustchain.eurotoken.EuroTokenMainActivity.EurotokenPreferences.EUROTOKEN_SHARED_PREF_NAME
+import nl.tudelft.trustchain.common.eurotoken.EurotokenPreferences.DEMO_MODE_ENABLED
+import nl.tudelft.trustchain.common.eurotoken.EurotokenPreferences.EUROTOKEN_SHARED_PREF_NAME
 import nl.tudelft.trustchain.eurotoken.db.TrustStore
 import nl.tudelft.trustchain.eurotoken.ui.settings.DefaultGateway
+import nl.tudelft.ipv8.util.hexToBytes
 
 class EuroTokenCommunity(
     store: GatewayStore,
@@ -37,6 +39,25 @@ class EuroTokenCommunity(
      * The context used to access the shared preferences.
      */
     private var myContext: Context
+
+    companion object {
+    //     * Every community initializes a different version of the EVA protocol (if enabled).
+    //  * To distinguish the incoming packets/requests an ID must be used to hold/let through the
+    //  * EVA related packets.
+        object EVAId {
+            const val EVA_LAST_ADDRESSES = "eva_last_addresses"
+        }
+
+        class Factory(
+            private val store: GatewayStore,
+            private val trustStore: TrustStore,
+            private val context: Context,
+        ) : Overlay.Factory<EuroTokenCommunity>(EuroTokenCommunity::class.java) {
+            override fun create(): EuroTokenCommunity {
+                return EuroTokenCommunity(store, trustStore, context)
+            }
+        }
+    }
 
     init {
         messageHandlers[MessageId.ROLLBACK_REQUEST] = ::onRollbackRequestPacket
@@ -68,15 +89,41 @@ class EuroTokenCommunity(
      * @param packet : the corresponding packet that contains the right payload.
      */
     private fun onLastAddressPacket(packet: Packet) {
-        val (_, payload) =
-            packet.getDecryptedAuthPayload(
-                TransactionsPayload.Deserializer,
-                myPeer.key as PrivateKey
-            )
+        try {
+            val (peer, payload) =
+                packet.getDecryptedAuthPayload(
+                    TransactionsPayload.Deserializer,
+                    myPeer.key as PrivateKey
+                )
 
-        val addresses: List<ByteArray> = String(payload.data).split(",").map { it.toByteArray() }
-        for (i in addresses.indices) {
-            myTrustStore.incrementTrust(addresses[i])
+            Log.d("EuroTokenCommunity", "onLastAddressPacket received from peer: ${peer.key.keyToHash().toHex()}")
+
+            Log.d("EuroTokenCommunity", "Raw payload data (hex): ${payload.data.toHex()}")
+
+            val payloadString = String(payload.data, Charsets.UTF_8)
+            Log.d("EuroTokenCommunity", "Decrypted payload content: $payloadString")
+
+            if (payloadString.isBlank()) {
+                Log.w("EuroTokenCommunity", "Payload is blank. Aborting trust update.")
+                return
+            }
+
+            val addressesHex = payloadString.split(",")
+            Log.d("EuroTokenCommunity", "Split addresses: $addressesHex")
+
+            // initially ->String(payload.data).split(",").map { it.toByteArray() }
+                // this caused errors using encoding
+                // exchanging trust didnt work offline...
+            val addresses: List<ByteArray> = addressesHex.map { it.hexToBytes() }
+            Log.d("EuroTokenCommunity", "Decoded ${addresses.size} addresses from payload.")
+
+            for (address in addresses) {
+                Log.d("EuroTokenCommunity", "Calling incrementTrust for address: ${address.toHex()}")
+                myTrustStore.incrementTrust(address)
+            }
+            Log.d("EuroTokenCommunity", "Finished processing trust addresses.")
+        } catch (e: Exception) {
+            Log.e("EuroTokenCommunity", "Error processing onLastAddressPacket", e)
         }
     }
 
@@ -179,25 +226,35 @@ class EuroTokenCommunity(
         peer: Peer,
         num: Int = 50
     ) {
+        Log.d("EuroTokenCommunity", "sendAddressesOfLastTransactions called for peer: ${peer.mid}")
         val pref = myContext.getSharedPreferences(EUROTOKEN_SHARED_PREF_NAME, Context.MODE_PRIVATE)
         val demoModeEnabled = pref.getBoolean(DEMO_MODE_ENABLED, false)
 
         val addresses: ArrayList<String> = ArrayList()
-        // Add own public key to list of addresses.
         addresses.add(myPeer.publicKey.keyToBin().toHex())
         if (demoModeEnabled) {
-            // Generate [num] addresses if in demo mode
             addresses.addAll(generatePublicKeys(num))
         } else {
-            // Get all addresses of the last [num] incoming transactions
             addresses.addAll(
                 transactionRepository.getTransactions(num).map { transaction: Transaction ->
-                    transaction.sender.toString()
+                    val counterpartyKey = if (transaction.outgoing) {
+                        transaction.receiver
+                    } else {
+                        transaction.sender
+                    }
+                    counterpartyKey.keyToBin().toHex()
                 }
             )
         }
 
-        val payload = TransactionsPayload(EVAId.EVA_LAST_ADDRESSES, addresses.joinToString(separator = ",").toByteArray())
+        Log.d("EuroTokenCommunity", "Number of addresses to send: ${addresses.size}")
+        Log.d("EuroTokenCommunity", "Addresses to send: $addresses")
+
+        val payloadString = addresses.joinToString(separator = ",")
+        Log.d("EuroTokenCommunity", "Payload string: $payloadString")
+        val payload = TransactionsPayload(EVAId.EVA_LAST_ADDRESSES, payloadString.toByteArray())
+
+        Log.d("EuroTokenCommunity", "Sending payload: $payloadString")
 
         val packet =
             serializePacket(
@@ -207,7 +264,7 @@ class EuroTokenCommunity(
                 recipient = peer
             )
 
-        // Send the list of addresses to the peer using EVA
+        Log.d("EuroTokenCommunity", "Sending ATTACHMENT packet to ${peer.mid}")
         if (evaProtocolEnabled) {
             evaSendBinary(
                 peer,
@@ -221,11 +278,83 @@ class EuroTokenCommunity(
     }
 
     /**
-     * Every community initializes a different version of the EVA protocol (if enabled).
-     * To distinguish the incoming packets/requests an ID must be used to hold/let through the
-     * EVA related packets.
+     * Collects trust addresses for offline exchange without sending them over the network.
+     * This is used for NFC-based trust data exchange.
+     *
+     * @param count The number of addresses to collect
+     * @return List of public key hex strings
      */
-    object EVAId {
-        const val EVA_LAST_ADDRESSES = "eva_last_addresses"
+    fun collectTrustAddresses(count: Int = 50): List<String> {
+        Log.d("EuroTokenCommunity", "Collecting $count trust addresses for offline exchange")
+
+        val addresses = ArrayList<String>()
+
+        // first have to include our own public key
+        addresses.add(myPeer.publicKey.keyToBin().toHex())
+
+        val pref = myContext.getSharedPreferences(
+            EUROTOKEN_SHARED_PREF_NAME,
+            Context.MODE_PRIVATE
+        )
+        val demoModeEnabled = pref.getBoolean(DEMO_MODE_ENABLED, false)
+
+        if (demoModeEnabled) {
+            // generate demo addresses
+            // otherwise web of trust does not work..
+            addresses.addAll(generatePublicKeys(count - 1))
+        } else {
+            try {
+                // lets get the reference to the transaction repository
+                // now in nfc manner we dont have a trustchaincommunity
+                val transactions = transactionRepository.getTransactions(count)
+                addresses.addAll(
+                    transactions.map { transaction: Transaction ->
+                        val counterpartyKey = if (transaction.outgoing) {
+                            transaction.receiver
+                        } else {
+                            transaction.sender
+                        }
+                        counterpartyKey.keyToBin().toHex()
+                    }.distinct().take(count - 1)
+                )
+            } catch (e: Exception) {
+                Log.e("EuroTokenCommunity", "Error collecting transaction addresses", e)
+            }
+        }
+
+        
+        while (addresses.size < count) {
+            addresses.add(generatePublicKey(addresses.size.toLong()))
+        }
+
+        Log.d("EuroTokenCommunity", "Collected ${addresses.size} trust addresses")
+        return addresses.take(count)
+    }
+
+    /**
+     * Processes trust addresses received via NFC.
+     *
+     * @param addressList List of public key hex strings
+     */
+    fun processTrustAddresses(addressList: List<String>) {
+        Log.d("EuroTokenCommunity", "Processing ${addressList.size} trust addresses from NFC")
+
+        addressList.forEach { addressHex ->
+            try {
+                // initially ->String(payload.data).split(",").map { it.toByteArray() }
+                // this caused errors using encoding
+                // exchanging trust didnt work offline....
+                if (addressHex.isNotEmpty()) {
+                    val addressBytes = addressHex.hexToBytes()
+                    myTrustStore.incrementTrust(addressBytes)
+                    Log.d("EuroTokenCommunity", "Incremented trust for address: $addressHex")
+                }
+            } catch (e: Exception) {
+                Log.e("EuroTokenCommunity", "Error processing trust address: $addressHex", e)
+            }
+        }
+
+        Log.d("EuroTokenCommunity", "Finished processing ${addressList.size} trust addresses")
     }
 }
+

@@ -1,4 +1,4 @@
-package nl.tudelft.trustchain.eurotoken.benchmarks
+package nl.tudelft.trustchain.common.eurotoken.benchmarks
 
 import android.util.Log
 
@@ -6,7 +6,7 @@ import android.util.Log
  * Utility class for convenient checkpoint tracking with try-with-resources pattern
  */
 class TransactionCheckpoint(private val checkpointName: String) : AutoCloseable {
-    
+
     init {
         try {
             UsageLogger.logTransactionCheckpointStart(checkpointName)
@@ -14,7 +14,7 @@ class TransactionCheckpoint(private val checkpointName: String) : AutoCloseable 
             Log.w("TransactionCheckpoint", "Failed to log checkpoint start for '$checkpointName'", e)
         }
     }
-    
+
     override fun close() {
         try {
             UsageLogger.logTransactionCheckpointEnd(checkpointName)
@@ -26,7 +26,7 @@ class TransactionCheckpoint(private val checkpointName: String) : AutoCloseable 
 
 /**
  * Inline function for convenient checkpoint usage:
- * 
+ *
  * trackCheckpoint("creating connection") {
  *     // do connection work
  * }

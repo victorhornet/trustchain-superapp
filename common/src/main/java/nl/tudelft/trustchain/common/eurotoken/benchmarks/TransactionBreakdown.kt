@@ -1,4 +1,4 @@
-package nl.tudelft.trustchain.eurotoken.benchmarks
+package nl.tudelft.trustchain.common.eurotoken.benchmarks
 
 data class CheckpointTiming(
     val name: String,
@@ -19,10 +19,10 @@ data class AverageTransactionBreakdown(
     val averageOtherDurationMs: Long
 ) {
     val checkpointPercentages: List<Pair<String, Double>>
-        get() = averageCheckpointTimings.map { 
+        get() = averageCheckpointTimings.map {
             it.name to (it.averageDurationMs.toDouble() / averageTotalDurationMs * 100)
         }
-    
+
     val otherPercentage: Double
         get() = averageOtherDurationMs.toDouble() / averageTotalDurationMs * 100
 }
@@ -34,10 +34,10 @@ data class TransactionBreakdown(
     val otherDurationMs: Long
 ) {
     val checkpointPercentages: List<Pair<String, Double>>
-        get() = checkpointTimings.map { 
+        get() = checkpointTimings.map {
             it.name to (it.totalDurationMs.toDouble() / totalDurationMs * 100)
         }
-    
+
     val otherPercentage: Double
         get() = otherDurationMs.toDouble() / totalDurationMs * 100
 }
@@ -50,19 +50,19 @@ fun aggregateCheckpointTimings(
     endEvents: List<TransactionCheckpointEndEvent>
 ): List<CheckpointTiming> {
     val timingMap = mutableMapOf<String, MutableList<Long>>()
-    
+
     // Match start and end events by checkpoint name and calculate durations
     startEvents.forEach { start ->
         val matchingEnd = endEvents.find { end ->
-            end.checkpointName == start.checkpointName && 
-            end.timestamp >= start.timestamp
+            end.checkpointName == start.checkpointName &&
+                end.timestamp >= start.timestamp
         }
         if (matchingEnd != null) {
             val duration = matchingEnd.timestamp - start.timestamp
             timingMap.getOrPut(start.checkpointName) { mutableListOf() }.add(duration)
         }
     }
-    
+
     // Aggregate by summing all durations for each checkpoint name
     return timingMap.map { (name, durations) ->
         CheckpointTiming(

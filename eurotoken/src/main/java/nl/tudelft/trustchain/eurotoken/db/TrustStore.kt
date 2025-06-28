@@ -1,6 +1,7 @@
 package nl.tudelft.trustchain.eurotoken.db
 
 import android.content.Context
+import android.util.Log
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
 import nl.tudelft.eurotoken.sqldelight.Database
 import nl.tudelft.trustchain.eurotoken.entity.TrustScore
@@ -69,6 +70,7 @@ class TrustStore(context: Context) {
 
         if (score != null) {
             val currentScore = score.toInt()
+            Log.d("TrustStore", "Found existing score: $currentScore")
             // If already at max score, don't increment
             if (currentScore >= MAX_SCORE) {
                 return
@@ -82,8 +84,10 @@ class TrustStore(context: Context) {
             }
 
             // We need to implement custom update methods since SQLDelight only provides increment by 1
+            Log.d("TrustStore", "Updating score to $newScore")
             updateScoreDirectly(publicKey, newScore)
         } else {
+            Log.d("TrustStore", "No existing score. Adding new key with score 0.")
             database.dbTrustScoreQueries.addScore(publicKey, 0)
         }
     }
@@ -163,7 +167,7 @@ class TrustStore(context: Context) {
 
     companion object {
         private lateinit var instance: TrustStore
-        
+
         // Constants for trust score calculations
         const val MAX_SCORE = 100
         const val DEFAULT_DECAY_FACTOR = 0.2

@@ -28,10 +28,10 @@ class PieChartView @JvmOverloads constructor(
         textSize = 32f
         textAlign = Paint.Align.CENTER
     }
-    
+
     private var slices = listOf<PieSlice>()
     private val rect = RectF()
-    
+
     private val colors = listOf(
         Color.parseColor("#FF6B6B"), // Red
         Color.parseColor("#4ECDC4"), // Teal
@@ -42,7 +42,7 @@ class PieChartView @JvmOverloads constructor(
         Color.parseColor("#54A0FF"), // Light Blue
         Color.parseColor("#5F27CD"), // Purple
         Color.parseColor("#00D2D3"), // Cyan
-        Color.parseColor("#FF9F43")  // Orange
+        Color.parseColor("#FF9F43") // Orange
     )
 
     fun setData(data: List<Pair<String, Double>>) {
@@ -58,7 +58,7 @@ class PieChartView @JvmOverloads constructor(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        
+
         if (slices.isEmpty()) {
             // Draw "No data" text
             textPaint.color = Color.GRAY
@@ -76,7 +76,7 @@ class PieChartView @JvmOverloads constructor(
         val centerX = width / 2f
         val centerY = height / 2f
         val radius = minOf(centerX, centerY) * 0.8f
-        
+
         rect.set(
             centerX - radius,
             centerY - radius,
@@ -85,24 +85,24 @@ class PieChartView @JvmOverloads constructor(
         )
 
         var startAngle = -90f // Start from top
-        
+
         slices.forEach { slice ->
             val sweepAngle = (slice.value / 100.0 * 360.0).toFloat()
-            
+
             paint.color = slice.color
             canvas.drawArc(rect, startAngle, sweepAngle, true, paint)
-            
+
             // Draw label
-            if (slice.value > 5.0) { // Only show label if slice is big enough
+            if (slice.value > 3.0) { // Only show label if slice is big enough
                 val midAngle = Math.toRadians((startAngle + sweepAngle / 2).toDouble())
                 val labelRadius = radius * 0.7f
                 val labelX = centerX + cos(midAngle).toFloat() * labelRadius
                 val labelY = centerY + sin(midAngle).toFloat() * labelRadius
-                
+
                 val labelText = "${slice.label}\n${String.format("%.1f%%", slice.value)}"
                 textPaint.color = Color.WHITE
                 textPaint.textSize = 24f
-                
+
                 // Draw text with background
                 val lines = labelText.split("\n")
                 lines.forEachIndexed { lineIndex, line ->
@@ -114,7 +114,7 @@ class PieChartView @JvmOverloads constructor(
                     )
                 }
             }
-            
+
             startAngle += sweepAngle
         }
     }

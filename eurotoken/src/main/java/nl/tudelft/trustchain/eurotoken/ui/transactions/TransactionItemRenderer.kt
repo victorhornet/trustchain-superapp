@@ -117,7 +117,26 @@ class TransactionItemRenderer(
                     transactionRepository.trustChainCommunity.database
                 )!!
             )
-//        txtVBalance.text = TransactionRepository.prettyAmount(transactionRepository.getVerifiedBalanceForBlock(item.transaction.block, transactionRepository.trustChainCommunity.database)!!)
+        // decide icon based   syncstatus
+        // pending/syncing/synced
+        when (item.transaction.syncStatus) {
+            "Pending" -> {
+                binding.syncStatusIcon.visibility = View.VISIBLE
+                binding.syncStatusIcon.setImageResource(R.drawable.ic_cloud_queue)
+                binding.syncStatusIcon.setColorFilter(ContextCompat.getColor(context, R.color.text_secondary))
+            }
+            "Syncing" -> {
+                binding.syncStatusIcon.visibility = View.VISIBLE
+                binding.syncStatusIcon.setImageResource(R.drawable.ic_baseline_trans_hist_alt_24)
+                binding.syncStatusIcon.setColorFilter(ContextCompat.getColor(context, R.color.primary))
+            }
+            "Synced" -> {
+                binding.syncStatusIcon.visibility = View.VISIBLE
+                binding.syncStatusIcon.setImageResource(R.drawable.ic_cloud_done)
+                binding.syncStatusIcon.setColorFilter(ContextCompat.getColor(context, R.color.green))
+            }
+            else -> binding.syncStatusIcon.visibility = View.GONE
+        }
     }
 
     override fun getLayoutResourceId(): Int {

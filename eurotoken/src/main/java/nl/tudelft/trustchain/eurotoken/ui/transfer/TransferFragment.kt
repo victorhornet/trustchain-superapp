@@ -6,7 +6,6 @@ import android.content.Intent
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
-import android.util.Log
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
@@ -16,17 +15,12 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
-import nl.tudelft.ipv8.Peer
-import nl.tudelft.ipv8.keyvault.defaultCryptoProvider
-import nl.tudelft.ipv8.util.hexToBytes
 import nl.tudelft.ipv8.util.toHex
 import nl.tudelft.trustchain.common.contacts.ContactStore
 import nl.tudelft.trustchain.common.eurotoken.TransactionRepository
 import nl.tudelft.trustchain.common.util.QRCodeUtils
 import nl.tudelft.trustchain.common.util.viewBinding
-import nl.tudelft.trustchain.eurotoken.EuroTokenMainActivity
 import nl.tudelft.trustchain.eurotoken.R
-import nl.tudelft.trustchain.eurotoken.community.EuroTokenCommunity
 import nl.tudelft.trustchain.eurotoken.databinding.FragmentTransferEuroBinding
 import nl.tudelft.trustchain.eurotoken.ui.EurotokenBaseFragment
 import org.json.JSONException
@@ -35,12 +29,10 @@ import nl.tudelft.trustchain.eurotoken.common.Mode
 import androidx.core.os.bundleOf
 import nl.tudelft.trustchain.eurotoken.common.TransactionArgs
 import nl.tudelft.trustchain.eurotoken.common.Channel
-import kotlin.math.ceil
-import kotlin.math.floor
+import nl.tudelft.trustchain.common.eurotoken.EurotokenPreferences
 
 class TransferFragment : EurotokenBaseFragment(R.layout.fragment_transfer_euro) {
     private val binding by viewBinding(FragmentTransferEuroBinding::bind)
-
     private val qrCodeUtils by lazy { QRCodeUtils(requireContext()) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -48,235 +40,152 @@ class TransferFragment : EurotokenBaseFragment(R.layout.fragment_transfer_euro) 
 
         lifecycleScope.launchWhenResumed {
             while (isActive) {
-                val ownKey = transactionRepository.trustChainCommunity.myPeer.publicKey
-                val ownContact =
-                    ContactStore.getInstance(requireContext()).getContactFromPublicKey(ownKey)
-                val pref =
-                    requireContext()
-                        .getSharedPreferences(
-                            EuroTokenMainActivity.EurotokenPreferences
-                                .EUROTOKEN_SHARED_PREF_NAME,
-                            Context.MODE_PRIVATE
-                        )
-                val demoModeEnabled =
-                    pref.getBoolean(
-                        EuroTokenMainActivity.EurotokenPreferences.DEMO_MODE_ENABLED,
-                        false
-                    )
-
-                if (demoModeEnabled) {
-                    binding.txtBalance.text =
-                        TransactionRepository.prettyAmount(transactionRepository.getMyBalance())
-                } else {
-                    binding.txtBalance.text =
-                        TransactionRepository.prettyAmount(
-                            transactionRepository.getMyVerifiedBalance()
-                        )
-                }
-                if (ownContact?.name != null) {
-                    binding.missingNameLayout.visibility = View.GONE
-                    binding.txtOwnName.text = "Your balance (" + ownContact.name + ")"
-                } else {
-                    binding.missingNameLayout.visibility = View.VISIBLE
-                    binding.txtOwnName.text = "Your balance"
-                }
+                updateBalanceDisplay()
                 delay(1000L)
             }
         }
     }
 
-    override fun onViewCreated(
-        view: View,
-        savedInstanceState: Bundle?
-    ) {
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        val ownKey = transactionRepository.trustChainCommunity.myPeer.publicKey
-        val ownContact = ContactStore.getInstance(view.context).getContactFromPublicKey(ownKey)
+        setupNameField()
+        setupPublicKeyDisplay()
+        updateBalanceDisplay()
+        setupPaymentButtons()
+    }
 
-        val pref =
-            requireContext().getSharedPreferences(
-                EuroTokenMainActivity.EurotokenPreferences.EUROTOKEN_SHARED_PREF_NAME,
-                Context.MODE_PRIVATE
-            )
-        val demoModeEnabled =
-            pref.getBoolean(
-                EuroTokenMainActivity.EurotokenPreferences.DEMO_MODE_ENABLED,
-                false
-            )
-
-        if (demoModeEnabled) {
-            binding.txtBalance.text =
-                TransactionRepository.prettyAmount(transactionRepository.getMyBalance())
-        } else {
-            binding.txtBalance.text =
-                TransactionRepository.prettyAmount(transactionRepository.getMyVerifiedBalance())
-        }
-        binding.txtOwnPublicKey.text = ownKey.keyToHash().toHex()
-
-        if (ownContact?.name != null) {
-            binding.missingNameLayout.visibility = View.GONE
-            binding.txtOwnName.text = "Your balance (" + ownContact.name + ")"
-        }
-
-
-
-        fun addName() {
-            val newName = binding.edtMissingName.text.toString()
-            if (newName.isNotEmpty()) {
-                ContactStore.getInstance(requireContext())
-                    .addContact(ownKey, newName)
-                if (ownContact?.name != null) {
-                    binding.missingNameLayout.visibility = View.GONE
-                    binding.txtOwnName.text = "Your balance (" + ContactStore.getInstance(requireContext()).getContactFromPublicKey(ownKey)?.name + ")"
-                }
-                val inputMethodManager =
-                    requireContext().getSystemService(Activity.INPUT_METHOD_SERVICE) as InputMethodManager
-                inputMethodManager.hideSoftInputFromWindow(view.windowToken, 0)
-            }
-        }
-
-        binding.btnAdd.setOnClickListener {
-            addName()
-        }
-
-        binding.edtMissingName.onSubmit {
-            addName()
-        }
-
-        binding.edtAmount.addDecimalLimiter()
-
-        // leads to bottomsheetfragment for request options
-        binding.btnRequestQR.setOnClickListener {
-            val amount = getAmount(binding.edtAmount.text.toString())
-            if (amount <= 0) {
-                Toast.makeText(requireContext(), "Please enter a positive amount.", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-
-            val extraPayloadBytes = getExtraPayloadBytes()
-            val myPublicKey = getTrustChainCommunity().myPeer.publicKey.keyToHash().toHex()
-            val myName = ContactStore.getInstance(requireContext()).getContactFromPublicKey(getTrustChainCommunity().myPeer.publicKey)?.name ?: ""
-
-            val qrJsonData = JSONObject().apply {
-                put("type", "request")
-                put("amount", amount)
-                put("public_key", myPublicKey)
-                put("name", myName)
-            }.toString()
-
-            val transactionArgs = TransactionArgs(
-                mode = Mode.RECEIVE,
-                channel = Channel.QR,
-                amount = amount,
-                publicKey = myPublicKey,
-                name = myName,
-                qrData = qrJsonData,
-                extraPayloadBytes = extraPayloadBytes
-            )
-
-            val bundle = bundleOf(TransportChoiceSheet.ARG_TRANSACTION_ARGS_RECEIVED to transactionArgs)
-            val transportChoiceSheet = TransportChoiceSheet()
-            transportChoiceSheet.arguments = bundle
-            transportChoiceSheet.show(childFragmentManager, "TransportChoiceReceive")
-        }
-
-        // leads to bottomsheetfragment for SEND options
-        binding.btnSendQR.setOnClickListener {
-            val amount = getAmount(binding.edtAmount.text.toString())
-            if (amount <= 0) {
-                Toast.makeText(requireContext(), "Please enter a positive amount to send.", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-
-            val extraPayloadBytes = getExtraPayloadBytes()
+    // refactord so its more understandeable
+    // bottomsheet
+    // defualt is qr--> bottomsheet overrides
+    // amount will be set via dialogfrag also bottomsheet overrides
+    private fun setupPaymentButtons() {
+        binding.btnSend.setOnClickListener {
             val transactionArgs = TransactionArgs(
                 mode = Mode.SEND,
                 channel = Channel.QR,
-                amount = amount,
-                extraPayloadBytes = extraPayloadBytes
+                amount = 0L,
+                extraPayloadBytes = getExtraPayloadBytes()
             )
 
-            // todo: bottomsheet instaed?
-            val bundle = bundleOf(TransportChoiceSheet.ARG_TRANSACTION_ARGS_RECEIVED to transactionArgs)
+            // this is exactly important
             val transportSheet = TransportChoiceSheet.newInstance(transactionArgs)
-//            transportSheet.arguments = bundle
             transportSheet.show(childFragmentManager, "TransportChoiceSend")
+        }
+
+        binding.btnReceive.setOnClickListener {
+            val transactionArgs = TransactionArgs(
+                mode = Mode.RECEIVE,
+                channel = Channel.QR,
+                amount = 0L,
+                extraPayloadBytes = getExtraPayloadBytes()
+            )
+
+            val transportSheet = TransportChoiceSheet.newInstance(transactionArgs)
+            transportSheet.show(childFragmentManager, "TransportChoiceReceive")
         }
     }
 
-    /**
-     * Find a [Peer] in the network by its public key.
-     * @param pubKey : The public key of the peer to find.
-     */
-    private fun findPeer(pubKey: String): Peer? {
-        val itr = transactionRepository.trustChainCommunity.getPeers().listIterator()
-        while (itr.hasNext()) {
-            val cur: Peer = itr.next()
-            Log.d("EUROTOKEN", cur.key.pub().toString())
-            if (cur.key.pub().toString() == pubKey) {
-                return cur
-            }
+    private fun setupPublicKeyDisplay() {
+        val ownKey = transactionRepository.trustChainCommunity.myPeer.publicKey
+        binding.txtOwnPublicKey.text = ownKey.keyToHash().toHex()
+
+        // copy button added, easy to copy the public key for ui
+        binding.btnCopyPublicKey.setOnClickListener {
+            val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            val clip = android.content.ClipData.newPlainText("EuroToken ID", ownKey.keyToHash().toHex())
+            clipboard.setPrimaryClip(clip)
+
+            Toast.makeText(requireContext(), "ID copied to clipboard", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun updateBalanceDisplay() {
+        val ownKey = transactionRepository.trustChainCommunity.myPeer.publicKey
+        val ownContact = ContactStore.getInstance(requireContext()).getContactFromPublicKey(ownKey)
+
+        val pref = requireContext().getSharedPreferences(
+            EurotokenPreferences.EUROTOKEN_SHARED_PREF_NAME,
+            Context.MODE_PRIVATE
+        )
+        val demoModeEnabled = pref.getBoolean(
+            EurotokenPreferences.DEMO_MODE_ENABLED,
+            false
+        )
+
+        val balance = if (demoModeEnabled) {
+            transactionRepository.getMyBalance()
+        } else {
+            transactionRepository.getMyVerifiedBalance()
         }
 
-        return null
+        binding.txtBalance.text = TransactionRepository.prettyAmount(balance)
+
+        if (ownContact?.name != null) {
+            binding.missingNameCard.visibility = View.GONE
+            binding.txtOwnName.text = "Your balance (${ownContact.name})"
+        } else {
+            binding.missingNameCard.visibility = View.VISIBLE
+            binding.txtOwnName.text = "Your balance"
+        }
+    }
+
+    private fun setupNameField() {
+        val ownKey = transactionRepository.trustChainCommunity.myPeer.publicKey
+        val ownContact = ContactStore.getInstance(requireContext()).getContactFromPublicKey(ownKey)
+
+        if (ownContact?.name != null) {
+            binding.missingNameCard.visibility = View.GONE
+        }
+
+        fun addName() {
+            val newName = binding.edtMissingName.text.toString().trim()
+            if (newName.isNotEmpty()) {
+                ContactStore.getInstance(requireContext()).addContact(ownKey, newName)
+                binding.missingNameCard.visibility = View.GONE
+                updateBalanceDisplay()
+                requireContext().hideKeyboard(binding.root)
+
+                Toast.makeText(requireContext(), "Welcome, $newName! 🎉", Toast.LENGTH_SHORT).show()
+            } else {
+                // alternative was lottie but still had something similar in old code
+                // adds flair :)
+                binding.edtMissingName.animate()
+                    .translationX(-10f).setDuration(50)
+                    .withEndAction {
+                        binding.edtMissingName.animate()
+                            .translationX(10f).setDuration(50)
+                            .withEndAction {
+                                binding.edtMissingName.animate()
+                                    .translationX(0f).setDuration(50)
+                            }
+                    }
+                Toast.makeText(requireContext(), "Please enter your name", Toast.LENGTH_SHORT).show()
+            }
+        }
+        binding.btnAdd.setOnClickListener { addName() }
+        binding.edtMissingName.onSubmit { addName() }
+    }
+
+    private fun getExtraPayloadBytes(): Int {
+        val text = binding.edtExtraPayloadBytes.text.toString()
+        return if (text.isNotEmpty()) {
+            try {
+                text.toInt().coerceAtLeast(0)
+            } catch (e: NumberFormatException) {
+                0
+            }
+        } else {
+            0
+        }
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         qrCodeUtils.parseActivityResult(requestCode, resultCode, data)?.let {
             try {
                 val connectionData = ConnectionData(it)
-                // Log transaction start for sending money via QR scan
 
-                if (connectionData.type == "transfer") {
-                    val args = Bundle()
-                    args.putString(SendMoneyFragment.ARG_PUBLIC_KEY, connectionData.publicKey)
-                    args.putLong(SendMoneyFragment.ARG_AMOUNT, connectionData.amount)
-                    args.putString(SendMoneyFragment.ARG_NAME, connectionData.name)
-
-                    try {
-                        val peer =
-                            findPeer(
-                                defaultCryptoProvider
-                                    .keyFromPublicBin(connectionData.publicKey.hexToBytes())
-                                    .toString()
-                            )
-
-                        // caused some errors, so more error handling
-                        if (peer == null) {
-                            logger.warn {
-                                "Could not find peer from QR code by public key " +
-                                    connectionData.publicKey
-                            }
-                            Toast.makeText(
-                                requireContext(),
-                                "Could not find peer from QR code",
-                                Toast.LENGTH_LONG
-                            )
-                                .show()
-                        }
-                        val euroTokenCommunity = getIpv8().getOverlay<EuroTokenCommunity>()
-                        if (euroTokenCommunity == null) {
-                            Toast.makeText(
-                                requireContext(),
-                                "Could not find community",
-                                Toast.LENGTH_LONG
-                            )
-                                .show()
-                        }
-                        if (peer != null && euroTokenCommunity != null) {
-                            euroTokenCommunity.sendAddressesOfLastTransactions(peer)
-                        }
-                    } catch (e: Exception) {
-                        logger.error { e }
-                        Toast.makeText(
-                            requireContext(),
-                            "Failed to send transactions",
-                            Toast.LENGTH_LONG
-                        )
-                            .show()
-                    }
-
+                if (connectionData.type == "transfer" || connectionData.type == "request") {
                     val transactionArgs = TransactionArgs(
                         mode = Mode.SEND,
                         channel = Channel.QR,
@@ -285,9 +194,10 @@ class TransferFragment : EurotokenBaseFragment(R.layout.fragment_transfer_euro) 
                         name = connectionData.name,
                         qrData = null
                     )
+
                     findNavController().navigate(
-                        R.id.sendMoneyFragment,
-                        bundleOf("transaction_args_received" to transactionArgs)
+                        R.id.action_transferFragment_to_sendMoneyFragment,
+                        bundleOf("transaction_args" to transactionArgs)
                     )
                 } else {
                     Toast.makeText(requireContext(), "Invalid QR", Toast.LENGTH_LONG).show()
@@ -295,20 +205,15 @@ class TransferFragment : EurotokenBaseFragment(R.layout.fragment_transfer_euro) 
             } catch (e: JSONException) {
                 Toast.makeText(requireContext(), "Scan failed, try again", Toast.LENGTH_LONG).show()
             }
-        }
-            ?: Toast.makeText(requireContext(), "Scan failed", Toast.LENGTH_LONG).show()
-        return
+        } ?: Toast.makeText(requireContext(), "Scan failed", Toast.LENGTH_LONG).show()
     }
 
     companion object {
-        private const val KEY_PUBLIC_KEY = "public_key"
-
         fun EditText.onSubmit(func: () -> Unit) {
             setOnEditorActionListener { _, actionId, _ ->
                 if (actionId == EditorInfo.IME_ACTION_DONE) {
                     func()
                 }
-
                 true
             }
         }
@@ -336,12 +241,9 @@ class TransferFragment : EurotokenBaseFragment(R.layout.fragment_transfer_euro) 
 
         fun EditText.decimalLimiter(string: String): String {
             var amount = getAmount(string)
-
             if (amount == 0L) {
                 return ""
             }
-
-            // val amount = string.replace("[^\\d]", "").toLong()
             return (amount / 100).toString() + "." + (amount % 100).toString().padStart(2, '0')
         }
 
@@ -366,7 +268,6 @@ class TransferFragment : EurotokenBaseFragment(R.layout.fragment_transfer_euro) 
                         count: Int,
                         after: Int
                     ) {}
-
                     override fun onTextChanged(
                         s: CharSequence?,
                         start: Int,
@@ -375,19 +276,6 @@ class TransferFragment : EurotokenBaseFragment(R.layout.fragment_transfer_euro) 
                     ) {}
                 }
             )
-        }
-    }
-
-    private fun getExtraPayloadBytes(): Int {
-        val text = binding.edtExtraPayloadBytes.text.toString()
-        return if (text.isNotEmpty()) {
-            try {
-                text.toInt().coerceAtLeast(0)
-            } catch (e: NumberFormatException) {
-                0
-            }
-        } else {
-            0
         }
     }
 }

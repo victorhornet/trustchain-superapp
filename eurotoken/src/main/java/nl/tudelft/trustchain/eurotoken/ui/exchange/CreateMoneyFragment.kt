@@ -10,11 +10,11 @@ import nl.tudelft.ipv8.util.toHex
 import nl.tudelft.trustchain.common.eurotoken.GatewayStore
 import nl.tudelft.trustchain.common.eurotoken.TransactionRepository
 import nl.tudelft.trustchain.common.util.viewBinding
-import nl.tudelft.trustchain.eurotoken.EuroTokenMainActivity
 import nl.tudelft.trustchain.eurotoken.R
 import nl.tudelft.trustchain.eurotoken.community.EuroTokenCommunity
 import nl.tudelft.trustchain.eurotoken.databinding.FragmentCreateMoneyBinding
 import nl.tudelft.trustchain.eurotoken.ui.EurotokenBaseFragment
+import nl.tudelft.trustchain.common.eurotoken.EurotokenPreferences
 
 class CreateMoneyFragment : EurotokenBaseFragment(R.layout.fragment_create_money) {
     private var addGateway = false
@@ -97,12 +97,12 @@ class CreateMoneyFragment : EurotokenBaseFragment(R.layout.fragment_create_money
         val pref =
             requireContext()
                 .getSharedPreferences(
-                    EuroTokenMainActivity.EurotokenPreferences
+                    EurotokenPreferences
                         .EUROTOKEN_SHARED_PREF_NAME,
                     Context.MODE_PRIVATE
                 )
         val demoModeEnabled =
-            pref.getBoolean(EuroTokenMainActivity.EurotokenPreferences.DEMO_MODE_ENABLED, false)
+            pref.getBoolean(EurotokenPreferences.DEMO_MODE_ENABLED, false)
 
         if (demoModeEnabled) {
             binding.txtBalance.text =

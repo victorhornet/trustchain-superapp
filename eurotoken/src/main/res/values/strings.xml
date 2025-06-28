@@ -1,8 +1,8 @@
 <resources>
-    <string name="send_money_trustscore_warning_high">INFO: The public key you are sending to has a good trust score (%d%%)!</string>
-    <string name="send_money_trustscore_warning_low">WARNING: The public key you are sending to has a low trust score (%d%%).</string>
-    <string name="send_money_trustscore_warning_average">WARNING: The public key you are sending to has an average trust score (%d%%).</string>
-    <string name="send_money_trustscore_warning_no_score">WARNING: No trust score available for the public key you are sending to.</string>
+    <string name="send_money_trustscore_warning_high">INFO: The peer you are sending to has a good trust score (%d%%)!</string>
+    <string name="send_money_trustscore_warning_low">WARNING: The peer you are sending to has a low trust score (%d%%).</string>
+    <string name="send_money_trustscore_warning_average">WARNING: The peer you are sending to has an average trust score (%d%%).</string>
+    <string name="send_money_trustscore_warning_no_score">WARNING: No trust score available for the peer you are sending to.</string>
     <string name="copy_pubkey">Copy PubKey</string>
     <string name="verify_balance">Verify Balance</string>
     <string name="change_name">Change name</string>
@@ -11,16 +11,16 @@
     <string name="trust_scores_menu_item">Trustscores DB</string>
     <string name="trust_scores_db_item_score">%d%%</string>
 
-    <string name="receive_via_nfc">Receive via NFC Tap</string>
-    <string name="nfc_activated">Ready for NFC Tap (Sending).</string>
-    <string name="start_reader_mode">Enable Tap to Receive</string>
-    <string name="nfc_tap_confirmed">NFC Tap Confirmed!</string>
-    <string name="nfc_tap_failed_mismatch">NFC Tap Failed: Data mismatch.</string>
-    <string name="nfc_tap_failed_generic">NFC Tap Failed: %s</string>
+    <string name="receive_via_nfc">Receive via NFC Connection</string>
+    <string name="nfc_activated">Ready for NFC Connection (Sending).</string>
+    <string name="start_reader_mode">Enable Connection to Receive</string>
+    <string name="nfc_tap_confirmed">NFC Connection Confirmed!</string>
+    <string name="nfc_tap_failed_mismatch">NFC Connection Failed: Data mismatch.</string>
+    <string name="nfc_tap_failed_generic">NFC Connection Failed: %s</string>
 
-    <string name="apdu_service_desc">EuroToken HCE Service</string>
+    <string name="apdu_service_desc">EuroToken NFC Service</string>
     <string name="aid_group_desc">EuroToken Transaction</string>
-    <string name="waiting_for_nfc_tap">Waiting for NFC tap</string>
+    <string name="waiting_for_nfc_tap">Waiting for NFC connection</string>
 
     <string name="nfc_confirmation_failed">NFC Failed: %1$s</string>
 
@@ -29,12 +29,38 @@
     <string name="action_request_payment">Request Payment</string>
     <string name="action_send_payment">Send Payment</string>
     <string name="recent_activity">Recent Activity</string>
-    <string name="title_send_options">Send Options</string>
-    <string name="title_receive_options">Receive Options</string>
 
     <string name="intro_transfer_method">Select how to transfer EuroToken:</string>
 
-    <string name="nfc_activated_for_receiving">NFC Active: Ready to receive %1$s. Ask sender to tap.</string>
-    <string name="confirm_send_nfc">Confirm Send (NFC)</string>
+    <string name="nfc_activated_for_receiving">Ready to receive %1$s. Waiting for sender to connect.</string>
+    <string name="confirm_send_nfc">Confirm Payment (NFC)</string>
 
+    <string name="title_send_options">Payment Options</string>
+    <string name="title_receive_options">Receive Options</string>
+
+    <string name="payment_terminal">Peer Device</string>
+    <string name="tap_to_pay">Connect to Send</string>
+    <string name="payment_received">Payment Received!</string>
+    <string name="payment_complete">Payment Complete ✓</string>
+    <string name="payment_failed">Payment Failed</string>
+    <string name="hold_phones_together">Hold devices together</string>
+    <string name="processing_payment">Processing payment...</string>
+    <string name="insufficient_balance_error">Insufficient balance for this payment</string>
+    <string name="connection_lost_error">Connection lost. Please try again</string>
+    <string name="ready_to_pay">Ready to Send</string>
+    <string name="ready_to_send">Ready to Send</string>
+    <string name="hold_near_peer">Hold Near Peer Device</string>
+    <string name="waiting_for_sender">Waiting for sender to connect…</string>
+    <string name="peer_device_connected">Peer device connected</string>
+    <string name="incompatible_peer_device">Incompatible peer device</string>
+    <string name="connection_to_peer_lost">Connection to peer lost</string>
+    
+    <string name="transaction_successful">Transaction successful ✓</string>
+    <string name="you_paid_to">You sent %1$s to %2$s</string>
+    <string name="payment_timeout">Connection timeout</string>
+    <string name="no_payment_received">No payment received</string>
+    <string name="payment_in_progress">💳 Payment in Progress</string>
+    <string name="waiting_for_customer">Waiting for sender to connect…</string>
+    <string name="hce_service_description">EuroToken NFC Service</string>
+    <string name="aid_group_description">EuroToken NFC Payment</string>
 </resources>
