@@ -35,10 +35,10 @@ graph TB
     H --> L
     L --> P
 
-    classDef sender fill:#e1f5fe
-    classDef receiver fill:#f3e5f5
-    classDef protocol fill:#e8f5e8
-    classDef data fill:#fff3e0
+    classDef sender fill:#2563eb,stroke:#1e40af,stroke-width:2px,color:#ffffff
+    classDef receiver fill:#dc2626,stroke:#b91c1c,stroke-width:2px,color:#ffffff
+    classDef protocol fill:#16a34a,stroke:#15803d,stroke-width:2px,color:#ffffff
+    classDef data fill:#ea580c,stroke:#c2410c,stroke-width:2px,color:#ffffff
     
     class A,B,C,D sender
     class E,F,G,H receiver
