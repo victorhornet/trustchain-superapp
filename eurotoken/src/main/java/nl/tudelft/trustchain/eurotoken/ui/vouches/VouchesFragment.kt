@@ -9,7 +9,10 @@ import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.tabs.TabLayoutMediator
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import nl.tudelft.ipv8.util.toHex
 import nl.tudelft.trustchain.common.util.viewBinding
 import nl.tudelft.trustchain.eurotoken.R
@@ -21,6 +24,7 @@ import nl.tudelft.trustchain.eurotoken.entity.Vouch
 import nl.tudelft.trustchain.eurotoken.ui.EurotokenBaseFragment
 import java.text.SimpleDateFormat
 import java.util.*
+import java.util.concurrent.TimeUnit
 
 /**
  * A [Fragment] for managing vouches - commitments to pay certain amounts for other users.
@@ -172,23 +176,38 @@ class VouchesFragment : EurotokenBaseFragment(R.layout.fragment_vouches) {
 
                         val selectedTrustScore = trustScores[selectedUserIndex]
                         val amountInCents = (amount * 100).toLong()
+                        val hours = TimeUnit.MILLISECONDS.toHours(
+                            selectedDate!!.time - Date().time
+                        ).toInt()
 
-                        val vouch = Vouch(
-                            vouchedForPubKey = selectedTrustScore.pubKey,
-                            amount = amountInCents,
-                            expiryDate = selectedDate!!,
-                            createdDate = Date(),
-                            description = description,
-                            isActive = true
-                        )
+                        // Show processing indicator
+                        dialogBinding.progressBar.visibility = View.VISIBLE
+                        dialogBinding.btnCreate.isEnabled = false
 
-                        vouchStore.addVouch(vouch)
-                        refreshTotalVouched()
-                        refreshTabContents()
-                        dialog.dismiss()
+                        lifecycleScope.launch(Dispatchers.IO) {
+                            val success = community.createVouchWithBond(
+                                vouchee = selectedTrustScore.pubKey,
+                                vouchAmount = amount, // Using the original amount (in euros)
+                                bondAmount = 0,  // Not used internally
+                                expiryHours = hours,
+                                risk = 0.0       // Not used internally
+                            )
 
-                        Toast.makeText(requireContext(), "Vouch created successfully!", Toast.LENGTH_SHORT).show()
-                    } catch (e: NumberFormatException) {
+                            withContext(Dispatchers.Main) {
+                                dialogBinding.progressBar.visibility = View.GONE
+                                dialogBinding.btnCreate.isEnabled = true
+
+                                if (success) {
+                                    Toast.makeText(requireContext(), "Vouch created with bond collateral!", Toast.LENGTH_SHORT).show()
+                                    refreshTotalVouched()
+                                    refreshTabContents()
+                                    dialog.dismiss()
+                                } else {
+                                    Toast.makeText(requireContext(), "Vouch creation failed: Risk too high", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                    }  catch (e: NumberFormatException) {
                         Toast.makeText(requireContext(), "Please enter a valid amount", Toast.LENGTH_SHORT).show()
                     }
                 }

@@ -2,6 +2,8 @@ package nl.tudelft.trustchain.eurotoken.community
 
 import android.content.Context
 import android.util.Log
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.random.Random
 import nl.tudelft.ipv8.Community
 import nl.tudelft.ipv8.IPv4Address
@@ -76,20 +78,21 @@ class EuroTokenCommunity(
         // Do NOT initialize riskEstimator here, as transactionRepository is not set yet
     }
 
-//    fun startCleanupTask() {
-//        scope.launch {
-//            while (true) {
-//                delay(TimeUnit.HOURS.toMillis(1))
-//                cleanupExpiredBonds()
-//            }
-//        }
-//    }
+    fun startCleanupTask() {
+        scope.launch {
+            while (true) {
+                delay(TimeUnit.HOURS.toMillis(1))
+                cleanupExpiredBonds()
+            }
+        }
+    }
 
     @JvmName("setTransactionRepository1")
     fun setTransactionRepository(transactionRepositoryLocal: TransactionRepository) {
         transactionRepository = transactionRepositoryLocal
         riskEstimator = RiskEstimator(myVouchStore, myTrustStore, transactionRepository)
         addRollbackListener()
+        startCleanupTask()
     }
 
     private fun onRollbackRequestPacket(packet: Packet) {

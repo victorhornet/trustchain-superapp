@@ -146,6 +146,15 @@
                 android:layout_height="wrap_content"
                 android:text="Create Vouch"
                 android:textAllCaps="false" />
+            <ProgressBar
+                android:id="@+id/progressBar"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:visibility="gone"
+                app:layout_constraintTop_toBottomOf="@id/etDescription"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                android:layout_marginTop="16dp"/>
 
         </LinearLayout>
 
