@@ -257,9 +257,12 @@ UsageLogger.logTransferDone(receivedData?.size)
 
 ### Realistic Usage Benchmarks
 
+Below are the results of the benchmarks of the 1st and 2nd realistic usage experiments. All 30 transactions completed successfully, which means that they were able to recover from the data transfer errors.
+Experiment 3 showed that moving the phone to fast before the transaction finishes crashes the app.
+
 #### Figure 1: Benchmark results showing transaction performance metrics and phase breakdown visualization
 
-![Benchmark Results Dashboard](../images/benchmark_results_dashboard.png)
+![Benchmark Results Dashboard](../images/benchmark_results.jpg)
 
 ### Data Transfer Limits
 
@@ -267,7 +270,7 @@ The 1MB payload stress test transaction halted after 2 minutes and 30 seconds du
 
 #### Video 1: Large payload transfer test showing the transfer getting stuck and crashing
 
-https://github.com/user-attachments/assets/be3d713c-f5d7-4775-beeb-99bec8359864
+<https://github.com/user-attachments/assets/be3d713c-f5d7-4775-beeb-99bec8359864>
 
 ## Future Work
 
