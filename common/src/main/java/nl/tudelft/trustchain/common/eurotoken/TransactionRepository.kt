@@ -353,7 +353,7 @@ class TransactionRepository(
                 val blockHash = block.calculateHash().toHex()
                 val hasConnectedPeers = trustChainCommunity.getPeers().isNotEmpty()
 
-                val initialStatus = if (hasConnectedPeers) "Pending" else "Offline"
+                val initialStatus = "Pending"
 
                 val syncState = OfflineBlockSyncState(
                     blockHash = blockHash,
@@ -367,9 +367,7 @@ class TransactionRepository(
                 // no null pointer exception here, since context is not null
                 // fixes errors
                 if (context != null) {
-                    if (hasConnectedPeers) {
-                        SyncWorker.scheduleImmediateSync(context)
-                    }
+                    SyncWorker.scheduleImmediateSync(context)
                     SyncWorker.schedulePeriodicSync(context)
                 }
             } catch (e: Exception) {
