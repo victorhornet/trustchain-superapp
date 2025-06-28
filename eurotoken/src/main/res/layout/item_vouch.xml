@@ -49,6 +49,17 @@
         tools:text="€25.00" />
 
     <TextView
+        android:id="@+id/txtTrustScore"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="@color/text_secondary"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/txtAmount"
+        tools:text="Trust: 80%" />
+
+    <TextView
         android:id="@+id/txtExpiryDate"
         android:layout_width="0dp"
         android:layout_height="wrap_content"

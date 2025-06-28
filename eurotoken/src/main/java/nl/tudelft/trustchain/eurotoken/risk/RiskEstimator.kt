@@ -17,9 +17,11 @@ class RiskEstimator(
      */
     fun riskEstimationFunction(
         amount: Long,
-        payerBlock: TrustChainBlock,
+        payerPublicKey: ByteArray,
     ): Double {
         // Normalize the payer trust
+        val payerBlock = transactionRepository.getLatestBlock(payerPublicKey)
+            ?: return 0.0
         val payerBalance = transactionRepository.getMyVerifiedBalance()
         val payerPubKeyBytes: ByteArray = payerBlock.publicKey
         val rawTrustScore = trustStore.getScore(payerPubKeyBytes)?.toDouble() ?: 0.0

@@ -111,6 +111,17 @@ class BondStore(
         database.dbBondQueries.deleteBond(bondId)
     }
 
+    // Add this method to BondStore.kt
+    /**
+     * Get active bonds between two specific users.
+     */
+    fun getActiveBondsBetween(lender: ByteArray, receiver: ByteArray): List<Bond> {
+        return getBondsByLender(lender).filter { bond ->
+            bond.publicKeyReceiver.contentEquals(receiver) &&
+                bond.status == BondStatus.ACTIVE
+        }
+    }
+
     /**
      * Get all bonds in the database (for debugging/admin purposes).
      */

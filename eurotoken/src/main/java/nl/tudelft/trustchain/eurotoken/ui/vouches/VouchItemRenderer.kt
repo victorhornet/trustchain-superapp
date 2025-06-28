@@ -39,6 +39,17 @@ class VouchItemRenderer :
         // Set status
         val currentTime = System.currentTimeMillis()
         val isExpired = vouch.expiryDate.time < currentTime
+        val trustScore = item.trustScore ?: 0
+        binding.txtTrustScore.text = "Trust: $trustScore%"
+
+        // Color code based on trust level
+        binding.txtTrustScore.setTextColor(
+            when {
+                trustScore > 75 -> Color.GREEN
+                trustScore > 50 -> Color.YELLOW
+                else -> Color.RED
+            }
+        )
 
         when {
             !vouch.isActive -> {

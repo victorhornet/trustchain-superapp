@@ -63,7 +63,10 @@ class VouchListFragment : EurotokenBaseFragment(R.layout.fragment_vouch_list) {
                     vouchStore.getOwnActiveVouches()
                 }
 
-            val items = vouches.map { vouch -> VouchItem(vouch) }
+            val items = vouches.map { vouch ->
+                val trustScore = trustStore.getScore(vouch.vouchedForPubKey)
+                VouchItem(vouch, trustScore?.toInt())
+            }
             adapter.updateItems(items)
             adapter.notifyDataSetChanged()
 

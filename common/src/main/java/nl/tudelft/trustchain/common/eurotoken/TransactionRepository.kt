@@ -1250,6 +1250,9 @@ class TransactionRepository(
             }
         )
     }
+    fun getLatestBlock(publicKey: ByteArray): TrustChainBlock? {
+        return trustChainCommunity.database.getLatest(publicKey)
+    }
 
     fun initTrustChainCommunity() {
         addTransferListeners()

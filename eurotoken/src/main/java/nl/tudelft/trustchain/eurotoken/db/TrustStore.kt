@@ -1,8 +1,10 @@
 package nl.tudelft.trustchain.eurotoken.db
 
 import android.content.Context
+import android.util.Log
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
 import nl.tudelft.eurotoken.sqldelight.Database
+import nl.tudelft.ipv8.util.toHex
 import nl.tudelft.trustchain.eurotoken.entity.TrustScore
 
 /**
@@ -169,6 +171,24 @@ class TrustStore(
         return 1.0 / (1.0 + kotlin.math.exp(-k * (x - mid)))
     }
 
+    fun decrementTrust(
+        publicKey: ByteArray,
+        penalty: Int = DEFAULT_PENALTY
+    ) {
+        val currentScore = getScore(publicKey)?.toInt() ?: 0
+        val newScore = maxOf(0, currentScore - penalty)
+
+        if (currentScore == 0) {
+            // Create entry if it doesn't exist
+            database.dbTrustScoreQueries.addScore(publicKey, newScore.toLong())
+        } else {
+            // Update existing score
+            updateScoreDirectly(publicKey, newScore)
+        }
+
+        Log.d("TrustStore", "Trust -$penalty for ${publicKey.toHex()}. New score: $newScore")
+    }
+
     /**
      * Initialize the database.
      */
@@ -185,6 +205,7 @@ class TrustStore(
         const val DEFAULT_CONSTANT_ADDITION = 1.0
         const val DEFAULT_THRESHOLD = 20
         const val DEFAULT_BOOST = 5
+        const val DEFAULT_PENALTY = 5
 
         fun getInstance(context: Context): TrustStore {
             if (!::instance.isInitialized) {

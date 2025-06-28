@@ -7,6 +7,7 @@ import nl.tudelft.ipv8.Community
 import nl.tudelft.ipv8.IPv4Address
 import nl.tudelft.ipv8.Overlay
 import nl.tudelft.ipv8.Peer
+import nl.tudelft.ipv8.attestation.trustchain.BlockListener
 import nl.tudelft.ipv8.attestation.trustchain.TrustChainBlock
 import nl.tudelft.ipv8.keyvault.PrivateKey
 import nl.tudelft.ipv8.keyvault.defaultCryptoProvider
@@ -16,12 +17,6 @@ import nl.tudelft.ipv8.util.toHex
 import nl.tudelft.trustchain.common.eurotoken.GatewayStore
 import nl.tudelft.trustchain.common.eurotoken.Transaction
 import nl.tudelft.trustchain.common.eurotoken.TransactionRepository
-import nl.tudelft.trustchain.common.eurotoken.TransactionRepository.Companion.BLOCK_TYPE_ONE_SHOT_BOND
-import nl.tudelft.trustchain.common.eurotoken.TransactionRepository.Companion.KEY_AMOUNT
-import nl.tudelft.trustchain.common.eurotoken.TransactionRepository.Companion.KEY_BALANCE
-import nl.tudelft.trustchain.common.eurotoken.TransactionRepository.Companion.KEY_BOND_EXPIRY
-import nl.tudelft.trustchain.common.eurotoken.TransactionRepository.Companion.KEY_BOND_ID
-import nl.tudelft.trustchain.common.eurotoken.TransactionRepository.Companion.KEY_BOND_RECEIVER
 import nl.tudelft.trustchain.eurotoken.EuroTokenMainActivity.EurotokenPreferences.DEMO_MODE_ENABLED
 import nl.tudelft.trustchain.eurotoken.EuroTokenMainActivity.EurotokenPreferences.EUROTOKEN_SHARED_PREF_NAME
 import nl.tudelft.trustchain.eurotoken.db.BondStore
@@ -35,6 +30,7 @@ import java.util.Date
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 import java.math.BigInteger
+import nl.tudelft.trustchain.eurotoken.risk.RiskEstimator
 
 class EuroTokenCommunity(
     store: GatewayStore,
@@ -58,6 +54,8 @@ class EuroTokenCommunity(
      */
     private var myVouchStore: VouchStore
 
+    private lateinit var riskEstimator: RiskEstimator
+
     /**
      * The context used to access the shared preferences.
      */
@@ -75,6 +73,7 @@ class EuroTokenCommunity(
         myVouchStore = vouchStore
         myContext = context
         myBondStore = BondStore.getInstance(context)
+        // Do NOT initialize riskEstimator here, as transactionRepository is not set yet
     }
 
 //    fun startCleanupTask() {
@@ -89,75 +88,76 @@ class EuroTokenCommunity(
     @JvmName("setTransactionRepository1")
     fun setTransactionRepository(transactionRepositoryLocal: TransactionRepository) {
         transactionRepository = transactionRepositoryLocal
-//        addRollbackListener()
+        riskEstimator = RiskEstimator(myVouchStore, myTrustStore, transactionRepository)
+        addRollbackListener()
     }
 
     private fun onRollbackRequestPacket(packet: Packet) {
         val (peer, payload) = packet.getAuthPayload(RollbackRequestPayload.Deserializer)
         onRollbackRequest(peer, payload)
     }
+    fun getVouchStore(): VouchStore = myVouchStore
+    private fun addRollbackListener() {
+        transactionRepository.trustChainCommunity.addListener(
+            TransactionRepository.BLOCK_TYPE_ROLLBACK,
+             object : BlockListener {
+                override fun onBlockReceived(block: TrustChainBlock) {
+                    // This is called when a rollback block is received and validated.
+                    // It indicates a previous transaction was invalid, possibly due to double-spending.
+                    handleTransactionRollback(block)
+                }
+            }
+        )
+    }
 
-//    private fun addRollbackListener() {
-//        transactionRepository.trustChainCommunity.addListener(
-//            TransactionRepository.BLOCK_TYPE_ROLLBACK,
-//            object : BlockListener {
-//                override fun onBlockReceived(block: TrustChainBlock) {
-//                    // This is called when a rollback block is received and validated.
-//                    // It indicates a previous transaction was invalid, possibly due to double-spending.
-//                    handleTransactionRollback(block)
-//                }
-//            }
-//        )
-//    }
-//
-//    private fun handleTransactionRollback(rollbackBlock: TrustChainBlock) {
-//        val myKey =
-//            transactionRepository.trustChainCommunity.myPeer.publicKey
-//                .keyToBin()
-//
-//        // A rollback block contains the hash of the transaction being rolled back.
-//        val rolledBackTxHashHex =
-//            rollbackBlock.transaction[TransactionRepository.KEY_TRANSACTION_HASH] as? String
-//                ?: return
-//
-//        val rolledBackBlock =
-//            try {
-//                transactionRepository.trustChainCommunity.database.getBlockWithHash(rolledBackTxHashHex.hexToBytes())
-//            } catch (e: Exception) {
-//                null
-//            } ?: return
-//
-//        // Determine the counterparty of the original transaction.
-//        val counterpartyKey =
-//            if (rolledBackBlock.publicKey.contentEquals(myKey)) {
-//                rolledBackBlock.linkPublicKey // I sent the original transaction
-//            } else {
-//                rolledBackBlock.publicKey // I received the original transaction
-//            }
-//
-//        // Find an active, one-shot bond from me (lender) to the counterparty (receiver)
-//        // that could have been collateral for this transaction.
-//        val rollbackDate = Date(rollbackBlock.timestamp.toLong() * 1_000L)
-//        val bonds =
-//            myBondStore
-//                .getBondsByLender(myKey)
-//                .filter {
-//                    it.publicKeyReceiver.contentEquals(counterpartyKey) &&
-//                        it.status == BondStatus.ACTIVE &&
-//                        it.isOneShot &&
-//                        it.createdAt.before(rollbackDate)
-//                }
-//
-//        // Forfeit the most recent matching bond.
-//        bonds.maxByOrNull { it.createdAt }?.let { bondToForfeit ->
-//            myBondStore.updateBondStatus(bondToForfeit.id, BondStatus.FORFEITED)
-//            Log.d("BondForfeiture", "Bond ${bondToForfeit.id} automatically forfeited due to transaction rollback (double-spend).")
-//            // The bond amount is now permanently gone from the user's balance,
-//            // as it was subtracted on creation and will not be returned.
-// //            myTrustStore.decrementTrust(counterpartyKey, PENALTY_VALUE)
-// //            Log.d("Trust", "Reduced trust for ${counterpartyKey.toHex()}")
-//        }
-//    }
+    private fun handleTransactionRollback(rollbackBlock: TrustChainBlock) {
+        val myKey =
+            transactionRepository.trustChainCommunity.myPeer.publicKey
+                .keyToBin()
+
+        // A rollback block contains the hash of the transaction being rolled back.
+        val rolledBackTxHashHex =
+            rollbackBlock.transaction[TransactionRepository.KEY_TRANSACTION_HASH] as? String
+                ?: return
+
+        val rolledBackBlock =
+            try {
+                transactionRepository.trustChainCommunity.database.getBlockWithHash(rolledBackTxHashHex.hexToBytes())
+            } catch (e: Exception) {
+                null
+            } ?: return
+
+        // Determine the counterparty of the original transaction.
+        val counterpartyKey =
+            if (rolledBackBlock.publicKey.contentEquals(myKey)) {
+                rolledBackBlock.linkPublicKey // I sent the original transaction
+            } else {
+                rolledBackBlock.publicKey // I received the original transaction
+            }
+
+        // Find an active, one-shot bond from me (lender) to the counterparty (receiver)
+        // that could have been collateral for this transaction.
+        val rollbackDate = rollbackBlock.timestamp
+        val bonds =
+            myBondStore
+                .getBondsByLender(myKey)
+                .filter {
+                    it.publicKeyReceiver.contentEquals(counterpartyKey) &&
+                        it.status == BondStatus.ACTIVE &&
+                        it.isOneShot &&
+                        it.createdAt.before(rollbackDate)
+                }
+
+        // Forfeit the most recent matching bond.
+        bonds.maxByOrNull { it.createdAt }?.let { bondToForfeit ->
+            myBondStore.updateBondStatus(bondToForfeit.id, BondStatus.FORFEITED)
+            Log.d("BondForfeiture", "Bond ${bondToForfeit.id} automatically forfeited due to transaction rollback (double-spend).")
+            // The bond amount is now permanently gone from the user's balance,
+            // as it was subtracted on creation and will not be returned.
+             myTrustStore.decrementTrust(counterpartyKey,5)
+             Log.d("Trust", "Reduced trust for ${counterpartyKey.toHex()}")
+        }
+    }
 
     /**
      * Called upon receiving MessageId.ATTACHMENT packet.
@@ -218,24 +218,6 @@ class EuroTokenCommunity(
         }
     }
 
-//    fun sendTransferProposalWithRiskCheck(
-//        receiver: ByteArray,
-//        amount: Long
-//    ): TrustChainBlock? {
-//        // Get borrower's latest block
-//        val borrowerBlock = getLatestBlock(receiver)
-//
-//        // Calculate risk
-//        val risk = riskEstimator.riskEstimationFunction(amount, borrowerBlock)
-//
-//        // Show risk in UI (need callback to activity)
-//        onRiskCalculated(risk)
-//
-//        if (risk < RISK_THRESHOLD) {
-//            return transactionRepository.sendTransferProposalSync(receiver, amount)
-//        }
-//        return null
-//    }
 
     private fun onRollbackRequest(
         peer: Peer,
@@ -325,6 +307,8 @@ class EuroTokenCommunity(
         return publicKeys
     }
 
+
+
     /**
      * Parse vouch data from JSON string format.
      * Format: "vouched_for_key|amount|expiry_date|created_date|description|is_active;..."
@@ -398,6 +382,85 @@ class EuroTokenCommunity(
 
         send(peer, packet)
     }
+    fun getTotalVouchCoverage(borrower: ByteArray): Long {
+        return myVouchStore.getActiveVouchesByPubKey(borrower)
+            .filter { it.isActive }
+            .sumOf { it.amount }
+    }
+
+    /**
+     * Checks the risk of all guarantors before processing a payout
+     * @param borrower The borrower's public key
+     * @param guarantors List of guarantor public keys
+     * @param amount The payout amount in cents
+     * @param threshold Minimum acceptable risk score (0.0-1.0)
+     * @return true if all guarantors meet risk threshold, false otherwise
+     */
+    fun payoutWithRiskCheck(
+        borrower: ByteArray,
+        guarantors: List<ByteArray>,
+        amount: Long,
+        threshold: Double = 0.7
+    ): Boolean {
+        // Check all guarantors meet risk threshold
+        guarantors.forEach { guarantorKey ->
+            val risk = riskEstimator.riskEstimationFunction(amount, guarantorKey)
+            if (risk < threshold) {
+                Log.w(
+                    "PayoutRisk",
+                    "Risk too low ($risk) for guarantor ${guarantorKey.toHex()}. Threshold: $threshold"
+                )
+                return false
+            }
+        }
+
+        // Proceed with payout if all checks pass
+        return transactionRepository.sendTransferProposalSync(borrower, amount) != null
+    }
+
+    fun processLoanPayout(borrower: ByteArray, amount: Long) {
+        val guarantors = myVouchStore.getGuarantorsForUser(borrower, myTrustStore)
+            .map { it.publicKey }
+
+        // 1. Check vouch coverage
+        val totalCoverage = getTotalVouchCoverage(borrower)
+        if (totalCoverage < amount) {
+            Log.e("Payout", "Insufficient vouch coverage: $totalCoverage < $amount")
+            return
+        }
+
+        // 2. Risk assessment
+        if (!payoutWithRiskCheck(borrower, guarantors, amount)) {
+            Log.e("Payout", "Risk too high for payout to ${borrower.toHex()}")
+            return
+        }
+
+        // 3. Execute payout
+        val transferBlock = transactionRepository.sendTransferProposalSync(borrower, amount)
+        if (transferBlock != null) {
+            Log.d("Payout", "Loan successfully paid out to ${borrower.toHex()}")
+
+            // 4. Automatically claim bonds
+            claimGuarantorBonds(borrower, guarantors)
+        } else {
+            Log.e("Payout", "Transfer failed for ${borrower.toHex()}")
+        }
+    }
+
+    private fun claimGuarantorBonds(borrower: ByteArray, guarantors: List<ByteArray>) {
+        guarantors.forEach { guarantorKey ->
+            val bonds = myBondStore.getActiveBondsBetween(guarantorKey, borrower)
+            bonds.forEach { bond ->
+                if (claimBond(bond.id)) {
+                    Log.d("BondClaim", "Claimed bond ${bond.id} from ${guarantorKey.toHex()}")
+                }
+            }
+        }
+    }
+    // Add this to EuroTokenCommunity.kt
+    fun estimateRisk(amount: Long, publicKey: ByteArray): Double {
+        return riskEstimator.riskEstimationFunction(amount, publicKey)
+    }
 
     /**
      * Called after the user has finished a transaction with the other party.
@@ -450,7 +513,7 @@ class EuroTokenCommunity(
     }
 
     fun calculateBondHybrid(
-        trustScore: Int,
+        trustScore: Long,
         vouchAmount: Double
     ): Double {
         val base = 1.0
@@ -479,7 +542,7 @@ class EuroTokenCommunity(
     fun createOneShotBond(
         receiver: ByteArray,
         // In cents (€0.01 units)
-        amount: Long,
+        amount: Double,
         expiryBlocks: Int = 1440
     ): TrustChainBlock? {
         // Verify sufficient spendable balance
@@ -518,7 +581,7 @@ class EuroTokenCommunity(
         // Create trust chain block
         val transaction =
             mapOf(
-                TransactionRepository.KEY_AMOUNT to BigInteger.valueOf(amount),
+                TransactionRepository.KEY_AMOUNT to BigInteger.valueOf(amount.toLong()),
                 TransactionRepository.KEY_BOND_RECEIVER to receiver,
                 TransactionRepository.KEY_BOND_ID to txId,
                 TransactionRepository.KEY_BOND_EXPIRY to
@@ -540,24 +603,25 @@ class EuroTokenCommunity(
     fun createVouchWithBond(
         vouchee: ByteArray,
         vouchAmount: Double,
-        bondAmount: Long,
-        expiryHours: Int = 24
+        bondAmount: Int,
+        expiryHours: Int,
+        risk: Double
     ): Boolean {
-//        val riskScore =
-//            riskEstimator.riskEstimationFunction(
-//                amount = (vouchAmount * 100).toLong(),
-//                payerBlock = getLatestBlock(vouchee) // Need to implement peer block fetch
-//            )
-//
-//        // Only create vouch if risk is acceptable
-//        if (riskScore < MIN_ACCEPTABLE_RISK) {
-//            Log.w("Vouch", "Risk too high: ${"%.2f".format(riskScore * 100)}%")
-//            return false
-//        }
-//
-//        // Calculate bond amount based on risk
-//        val trustScore = myTrustStore.getScore(vouchee) ?: 0
-//        val bondAmount = calculateBondAmount(trustScore, vouchAmount)
+        val riskScore =
+            riskEstimator.riskEstimationFunction(
+                amount = (vouchAmount * 100).toLong(),
+                payerPublicKey = vouchee // Need to implement peer block fetch
+            )
+
+        // Only create vouch if risk is acceptable
+        if (riskScore < 0.5) {
+            Log.w("Vouch", "Risk too high: ${"%.2f".format(riskScore * 100)}%")
+            return false
+        }
+
+        // Calculate bond amount based on risk
+        val trustScore = myTrustStore.getScore(vouchee) ?: 0
+        val bondAmount = calculateBondHybrid(trustScore.toLong(), vouchAmount)
         // Create bond
         val bondBlock =
             createOneShotBond(
@@ -604,7 +668,7 @@ class EuroTokenCommunity(
                 val amountCents = (bond.amount * 100).toLong()
                 transactionRepository
                     .sendTransferProposalSync(
-                        bond.publicKeyReceiver,
+                        bond.publicKeyLender,
                         amountCents
                     )?.let {
                         myBondStore.updateBondStatus(bondId, BondStatus.RELEASED)
@@ -622,6 +686,24 @@ class EuroTokenCommunity(
         val total = transactionRepository.getMyBalance()
         val locked = myBondStore.getTotalLockedAmount(userKey).toLong()
         return total - locked
+    }
+    fun sendTransferProposalWithRiskCheck(
+        receiver: ByteArray,
+        amount: Long
+    ): TrustChainBlock? {
+        // Get borrower's latest block
+        val borrowerBlock = transactionRepository.getLatestBlock(receiver)
+
+        // Calculate risk
+        val risk = riskEstimator.riskEstimationFunction(amount, receiver)
+
+        // Show risk in UI (need callback to activity)
+       // onRiskCalculated(risk) UI
+
+        if (risk < 0.5) {
+            return transactionRepository.sendTransferProposalSync(receiver, amount)
+        }
+        return null
     }
 
     fun enforceBond(
@@ -686,4 +768,6 @@ class EuroTokenCommunity(
         const val EVA_LAST_ADDRESSES = "eva_last_addresses"
         const val EVA_VOUCH_DATA = "eva_vouch_data"
     }
+
+    fun getTrustStore(): TrustStore = myTrustStore
 }
