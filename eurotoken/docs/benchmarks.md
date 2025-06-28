@@ -150,6 +150,71 @@ Data classes and methods for preparing benchmark results for visualization:
 - `LegendAdapter`: RecyclerView adapter for detailed metric display with color coding
 - Error handling and empty state management for robust user experience
 
+## Data Flow
+
+### 1. Event Collection Flow
+
+```text
+User Action → UsageLogger → DAO → Room Database
+     ↓
+Transaction Start
+     ↓
+Checkpoint Tracking (multiple phases)
+     ↓
+Transfer Operations (optional, multiple)
+     ↓
+Transaction Completion/Error/Cancel
+```
+
+### 2. Analytics Flow
+
+```text
+Room Database → DAO Queries → UsageBenchmarkCalculator → Aggregated Results → UI Components
+```
+
+### 3. Visualization Flow
+
+```text
+BenchmarksFragment.loadBenchmarkData() 
+    → UsageBenchmarkCalculator.calculateAverageTransactionBreakdown()
+    → PieChartView.setData() + LegendAdapter.setItems()
+    → User sees visual breakdown
+```
+
+## Integration Points
+
+### 1. Application Initialization
+
+In `EuroTokenMainActivity.onCreate()`:
+
+```kotlin
+UsageLogger.initialize(applicationContext)
+usageAnalyticsDatabase = UsageAnalyticsDatabase.getInstance(applicationContext)
+benchmarkCalculator = UsageBenchmarkCalculator(usageAnalyticsDatabase.usageEventsDao())
+```
+
+### 2. Transaction Integration
+
+In `SendMoneyFragment` (example integration):
+
+```kotlin
+binding.btnSend.setOnClickListener {
+    val transactionId = UsageLogger.logTransactionStart(jsonData)
+    // Launch NFC activity
+}
+```
+
+### 3. NFC/HCE Integration
+
+In `HCEService` and NFC components:
+
+```kotlin
+// Transfer logging for data exchange
+UsageLogger.logTransferStart(TransferDirection.OUTBOUND, data.size)
+// ... NFC communication
+UsageLogger.logTransferDone(receivedData?.size)
+```
+
 ## Experiment Setup
 
 ### Realistic Usage Tests
