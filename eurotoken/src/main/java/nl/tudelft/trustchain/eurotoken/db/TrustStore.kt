@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
 import nl.tudelft.eurotoken.sqldelight.Database
+import nl.tudelft.ipv8.util.toHex
 import nl.tudelft.trustchain.eurotoken.entity.TrustScore
 
 /**
@@ -12,7 +13,9 @@ import nl.tudelft.trustchain.eurotoken.entity.TrustScore
  * 50 public keys of transactions he/she made. For every public key,
  * a trust score is maintained in order to build the web of trust.
  */
-class TrustStore(context: Context) {
+class TrustStore(
+    context: Context
+) {
     private val driver = AndroidSqliteDriver(Database.Schema, context, "eurotoken.db")
     private val database = Database(driver)
 
@@ -32,16 +35,12 @@ class TrustStore(context: Context) {
     /**
      * Retrieve all [TrustScore]s from the database.
      */
-    fun getAllScores(): List<TrustScore> {
-        return database.dbTrustScoreQueries.getAll(messageMapper).executeAsList()
-    }
+    fun getAllScores(): List<TrustScore> = database.dbTrustScoreQueries.getAll(messageMapper).executeAsList()
 
     /**
      * Retrieve the [TrustScore]s of a specific public key.
      */
-    fun getScore(publicKey: ByteArray): Long? {
-        return database.dbTrustScoreQueries.getScore(publicKey).executeAsOneOrNull()
-    }
+    fun getScore(publicKey: ByteArray): Long? = database.dbTrustScoreQueries.getScore(publicKey).executeAsOneOrNull()
 
     /**
      * Enumeration of available trust score update strategies.
@@ -158,6 +157,33 @@ class TrustStore(context: Context) {
         database.dbTrustScoreQueries.updateScore(newScore.toLong(), publicKey)
     }
 
+    fun normalizeTrustScoreSigmoid(
+        trustScore: Long,
+        mid: Double = MAX_SCORE / 2.0,
+        k: Double = 0.1
+    ): Double {
+        val x = trustScore.toDouble()
+        return 1.0 / (1.0 + kotlin.math.exp(-k * (x - mid)))
+    }
+
+    fun decrementTrust(
+        publicKey: ByteArray,
+        penalty: Int = DEFAULT_PENALTY
+    ) {
+        val currentScore = getScore(publicKey)?.toInt() ?: 0
+        val newScore = maxOf(0, currentScore - penalty)
+
+        if (currentScore == 0) {
+            // Create entry if it doesn't exist
+            database.dbTrustScoreQueries.addScore(publicKey, newScore.toLong())
+        } else {
+            // Update existing score
+            updateScoreDirectly(publicKey, newScore)
+        }
+
+        Log.d("TrustStore", "Trust -$penalty for ${publicKey.toHex()}. New score: $newScore")
+    }
+
     /**
      * Initialize the database.
      */
@@ -174,6 +200,7 @@ class TrustStore(context: Context) {
         const val DEFAULT_CONSTANT_ADDITION = 1.0
         const val DEFAULT_THRESHOLD = 20
         const val DEFAULT_BOOST = 5
+        const val DEFAULT_PENALTY = 5
 
         fun getInstance(context: Context): TrustStore {
             if (!::instance.isInitialized) {

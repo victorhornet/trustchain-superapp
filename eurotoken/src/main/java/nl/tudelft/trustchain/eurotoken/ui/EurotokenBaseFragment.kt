@@ -24,9 +24,11 @@ import nl.tudelft.trustchain.common.eurotoken.GatewayStore
 import nl.tudelft.trustchain.common.eurotoken.TransactionRepository
 import nl.tudelft.trustchain.common.ui.BaseFragment
 import nl.tudelft.trustchain.eurotoken.R
+import nl.tudelft.trustchain.eurotoken.community.EuroTokenCommunity
 import nl.tudelft.trustchain.eurotoken.db.TrustStore
 import nl.tudelft.trustchain.common.eurotoken.benchmarks.UsageAnalyticsDatabase
 import nl.tudelft.trustchain.common.eurotoken.EurotokenPreferences
+import kotlin.random.Random
 
 open class EurotokenBaseFragment(contentLayoutId: Int = 0) : BaseFragment(contentLayoutId) {
     protected val logger = KotlinLogging.logger {}
@@ -36,6 +38,9 @@ open class EurotokenBaseFragment(contentLayoutId: Int = 0) : BaseFragment(conten
      */
     protected val trustStore by lazy {
         TrustStore.getInstance(requireContext())
+    }
+    protected val community: EuroTokenCommunity by lazy {
+        getIpv8().getOverlay<EuroTokenCommunity>()!!
     }
 
     protected val transactionRepository by lazy {
@@ -64,13 +69,21 @@ open class EurotokenBaseFragment(contentLayoutId: Int = 0) : BaseFragment(conten
                 }
             }
         }
-
+    fun debugInitializeTrustScores() {
+        // Create 10 fake trust scores for testing
+        repeat(10) {
+            val fakeKey = Random.nextBytes(32)
+            trustStore.incrementTrust(fakeKey)
+            trustStore.incrementTrust(fakeKey) // Double increment for some
+        }
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         @Suppress("DEPRECATION")
         setHasOptionsMenu(true)
         trustStore.createContactStateTable()
+        debugInitializeTrustScores()
 
         lifecycleScope.launchWhenResumed {
         }
@@ -199,6 +212,11 @@ open class EurotokenBaseFragment(contentLayoutId: Int = 0) : BaseFragment(conten
 
             R.id.trustScoresMenuItem -> {
                 findNavController().navigate(R.id.trustScoresFragment)
+                true
+            }
+
+            R.id.vouchesMenuItem -> {
+                findNavController().navigate(R.id.vouchesFragment)
                 true
             }
 

@@ -443,7 +443,8 @@ class TransactionRepository(
                 block.sequenceNumber.toLong()
             )
         val peer =
-            trustChainCommunity.getPeers()
+            trustChainCommunity
+                .getPeers()
                 .find { it.publicKey.keyToBin().contentEquals(block.publicKey) }
                 ?: Peer(defaultCryptoProvider.keyFromPublicBin(block.linkPublicKey))
         // Should only be run when receiving blocks, not when sending
@@ -457,7 +458,8 @@ class TransactionRepository(
                 )
             }
         if (blocks.isEmpty()) return null // No connection partial previous
-        return blocks.find { // linked block
+        return blocks.find {
+            // linked block
             it.publicKey.contentEquals(block.linkPublicKey) &&
                 it.sequenceNumber == block.linkSequenceNumber
         } ?: block // no linked block exists
@@ -521,7 +523,8 @@ class TransactionRepository(
         } else if (listOf(
                 BLOCK_TYPE_TRANSFER,
                 BLOCK_TYPE_CREATE
-            ).contains(block.type) && block.isAgreement
+            ).contains(block.type) &&
+            block.isAgreement
         ) {
             // block is receiving money, but balance is not verified, just recurse
             Log.d("EuroTokenBlock", "Validation, receiving money")
@@ -531,7 +534,8 @@ class TransactionRepository(
             )
         } else if (listOf(BLOCK_TYPE_TRANSFER, BLOCK_TYPE_DESTROY, BLOCK_TYPE_ROLLBACK).contains(
                 block.type
-            ) && block.isProposal
+            ) &&
+            block.isProposal
         ) {
             Log.d("EuroTokenBlock", "Validation, sending money")
             if (block.isGenesis) {
@@ -607,7 +611,8 @@ class TransactionRepository(
         } else if (listOf(
                 BLOCK_TYPE_TRANSFER,
                 BLOCK_TYPE_CREATE
-            ).contains(block.type) && block.isAgreement
+            ).contains(block.type) &&
+            block.isAgreement
         ) {
             // block is receiving money add it and recurse
             if (block.isGenesis) {
@@ -630,7 +635,11 @@ class TransactionRepository(
 
     fun getMyVerifiedBalance(): Long {
         Log.d("PEERDISCOVERY", "${trustChainCommunity.getPeers()}")
-        val myPublicKey = IPv8Android.getInstance().myPeer.publicKey.keyToBin()
+        val myPublicKey =
+            IPv8Android
+                .getInstance()
+                .myPeer.publicKey
+                .keyToBin()
         val latestBlock = trustChainCommunity.database.getLatest(myPublicKey)
         val myVerifiedBalance =
             getVerifiedBalanceForBlock(latestBlock, trustChainCommunity.database)
@@ -643,7 +652,11 @@ class TransactionRepository(
     }
 
     fun getMyBalance(): Long {
-        val myPublicKey = IPv8Android.getInstance().myPeer.publicKey.keyToBin()
+        val myPublicKey =
+            IPv8Android
+                .getInstance()
+                .myPeer.publicKey
+                .keyToBin()
         val latestBlock = trustChainCommunity.database.getLatest(myPublicKey)
         if (latestBlock == null) {
             Log.d("getMyBalance", "no latest block, defaulting to initial balance")
@@ -959,10 +972,8 @@ class TransactionRepository(
 
     fun getTransactions(limit: Int = 1000): List<Transaction> {
         val myKey = trustChainCommunity.myPeer.publicKey.keyToBin()
-//        val unsyncedHashes = runBlocking {
-//            offlineBlockSyncDao?.getUnsyncedBlockHashes() ?: emptyList()
-//        }.toSet()
-        return trustChainCommunity.database.getLatestBlocks(myKey, limit)
+        return trustChainCommunity.database
+            .getLatestBlocks(myKey, limit)
             .filter { block: TrustChainBlock -> EUROTOKEN_TYPES.contains(block.type) }
             .map { block: TrustChainBlock ->
                 val blockHash = block.calculateHash().toHex()
@@ -991,23 +1002,23 @@ class TransactionRepository(
     fun getLatestBlockOfType(
         trustchain: TrustChainHelper,
         allowedTypes: List<String>
-    ): TrustChainBlock {
-        return trustchain.getChainByUser(trustchain.getMyPublicKey())
+    ): TrustChainBlock =
+        trustchain
+            .getChainByUser(trustchain.getMyPublicKey())
             .first { block: TrustChainBlock ->
                 allowedTypes.contains(block.type)
             }
-    }
 
     fun getTransactionsBetweenMeAndOther(
         other: PublicKey,
         trustchain: TrustChainHelper
-    ): List<Transaction> {
-        return trustchain.getChainByUser(trustchain.getMyPublicKey())
+    ): List<Transaction> =
+        trustchain
+            .getChainByUser(trustchain.getMyPublicKey())
             .asSequence()
             .filter { block ->
                 block.publicKey.contentEquals(other.keyToBin())
-            }
-            .map { block: TrustChainBlock ->
+            }.map { block: TrustChainBlock ->
                 val sender = defaultCryptoProvider.keyFromPublicBin(block.publicKey)
                 Transaction(
                     block,
@@ -1023,9 +1034,7 @@ class TransactionRepository(
                     block.timestamp,
                     syncStatus = "Synced" // Set to Synced for online transactions
                 )
-            }
-            .toList()
-    }
+            }.toList()
 
     fun getLatestNTransactionsOfType(
         trustchain: TrustChainHelper,
@@ -1035,12 +1044,12 @@ class TransactionRepository(
         val myKey = trustChainCommunity.myPeer.publicKey.keyToBin()
         val blocks = trustChainCommunity.database.getLatestBlocks(myKey, 1000)
 
-        return trustchain.getChainByUser(trustchain.getMyPublicKey())
+        return trustchain
+            .getChainByUser(trustchain.getMyPublicKey())
             .asSequence()
             .filter { block: TrustChainBlock ->
                 allowedTypes.contains(block.type)
-            }
-            .filter { block ->
+            }.filter { block ->
                 val linkedBlock = blocks.find { it.linkedBlockId == block.blockId }
                 val hasLinkedBlock = linkedBlock != null
                 val outgoing = getBalanceChangeForBlock(block) < 0
@@ -1048,7 +1057,8 @@ class TransactionRepository(
                 val outgoingTransaction =
                     outgoing && hasLinkedBlock && block.type == BLOCK_TYPE_TRANSFER
                 val incomingTransaction =
-                    !outgoing && block.type == BLOCK_TYPE_TRANSFER &&
+                    !outgoing &&
+                        block.type == BLOCK_TYPE_TRANSFER &&
                         (blocks.find { it.blockId == block.linkedBlockId } != null)
                 val buyFromExchange =
                     !outgoing && block.type == BLOCK_TYPE_CREATE && !block.isAgreement
@@ -1056,8 +1066,7 @@ class TransactionRepository(
                     outgoing && block.type == BLOCK_TYPE_DESTROY && !block.isAgreement
 
                 buyFromExchange || sellToExchange || outgoingTransaction || incomingTransaction
-            }
-            .take(limit)
+            }.take(limit)
             .map { block: TrustChainBlock ->
                 val sender = defaultCryptoProvider.keyFromPublicBin(block.publicKey)
                 Transaction(
@@ -1074,16 +1083,14 @@ class TransactionRepository(
                     block.timestamp,
                     syncStatus = "Synced" // Set to Synced for online transactions
                 )
-            }
-            .toList()
+            }.toList()
     }
 
-    fun getTransactionWithHash(hash: ByteArray?): TrustChainBlock? {
-        return hash?.let {
+    fun getTransactionWithHash(hash: ByteArray?): TrustChainBlock? =
+        hash?.let {
             trustChainCommunity.database
                 .getBlockWithHash(it)
         }
-    }
 
     fun lastCheckpointIsEmpty(
         block: TrustChainBlock,
@@ -1109,7 +1116,11 @@ class TransactionRepository(
         euroHash: String,
         euroAddress: ByteArray
     ): ValidationResult {
-        val myKey = IPv8Android.getInstance().myPeer.publicKey.keyToBin()
+        val myKey =
+            IPv8Android
+                .getInstance()
+                .myPeer.publicKey
+                .keyToBin()
         var latestBlock =
             trustChainCommunity.database.getLatest(myKey) ?: return ValidationResult.Invalid(
                 listOf("Empty Chain")
@@ -1120,7 +1131,10 @@ class TransactionRepository(
         while (!euroConfirmed || !btcConfirmed) {
             // For eurotoken blocks check the linked block for the correct hash
             if (latestBlock.type.equals(BLOCK_TYPE_TRANSFER)) {
-                if (trustChainCommunity.database.getLinked(latestBlock)?.calculateHash()?.toHex()
+                if (trustChainCommunity.database
+                        .getLinked(latestBlock)
+                        ?.calculateHash()
+                        ?.toHex()
                         .equals(euroHash)
                 ) {
                     if (!latestBlock.linkPublicKey.toHex().equals(euroAddress.toHex())) {
@@ -1163,14 +1177,21 @@ class TransactionRepository(
         direction: String,
         euroAddress: ByteArray
     ): ValidationResult {
-        val myKey = IPv8Android.getInstance().myPeer.publicKey.keyToBin()
+        val myKey =
+            IPv8Android
+                .getInstance()
+                .myPeer.publicKey
+                .keyToBin()
         var latestBlock =
             trustChainCommunity.database.getLatest(myKey) ?: return ValidationResult.Invalid(
                 listOf("Empty Chain")
             )
         while (true) {
             if (direction.equals("bitcoin") && latestBlock.type.equals(BLOCK_TYPE_TRANSFER)) {
-                if (trustChainCommunity.database.getLinked(latestBlock)?.calculateHash()?.toHex()
+                if (trustChainCommunity.database
+                        .getLinked(latestBlock)
+                        ?.calculateHash()
+                        ?.toHex()
                         .equals(hash)
                 ) {
                     if (!latestBlock.linkPublicKey.toHex().equals(euroAddress.toHex())) {
@@ -1246,7 +1267,11 @@ class TransactionRepository(
                     block: TrustChainBlock,
                     database: TrustChainStore
                 ): ValidationResult {
-                    val mykey = IPv8Android.getInstance().myPeer.publicKey.keyToBin()
+                    val mykey =
+                        IPv8Android
+                            .getInstance()
+                            .myPeer.publicKey
+                            .keyToBin()
 
                     if (block.publicKey.toHex() == mykey.toHex() && block.isProposal) return ValidationResult.Valid
 
@@ -1288,9 +1313,10 @@ class TransactionRepository(
                             return ValidationResult.Invalid(
                                 listOf(
                                     "Linked transaction doesn't match (${block.transaction}, ${
-                                        database.getLinked(
-                                            block
-                                        )?.transaction ?: "MISSING"
+                                        database
+                                            .getLinked(
+                                                block
+                                            )?.transaction ?: "MISSING"
                                     })"
                                 )
                             )
@@ -1354,7 +1380,11 @@ class TransactionRepository(
                     block: TrustChainBlock,
                     database: TrustChainStore
                 ): ValidationResult {
-                    val mykey = IPv8Android.getInstance().myPeer.publicKey.keyToBin()
+                    val mykey =
+                        IPv8Android
+                            .getInstance()
+                            .myPeer.publicKey
+                            .keyToBin()
                     if (block.publicKey.toHex() == mykey.toHex() && block.isProposal) return ValidationResult.Valid
 
                     if (block.isProposal) {
@@ -1404,9 +1434,10 @@ class TransactionRepository(
                             return ValidationResult.Invalid(
                                 listOf(
                                     "Linked transaction doesn't match (${block.transaction}, ${
-                                        database.getLinked(
-                                            block
-                                        )?.transaction ?: "MISSING"
+                                        database
+                                            .getLinked(
+                                                block
+                                            )?.transaction ?: "MISSING"
                                     })"
                                 )
                             )
@@ -1454,7 +1485,11 @@ class TransactionRepository(
                     block: TrustChainBlock,
                     database: TrustChainStore
                 ): ValidationResult {
-                    val mykey = IPv8Android.getInstance().myPeer.publicKey.keyToBin()
+                    val mykey =
+                        IPv8Android
+                            .getInstance()
+                            .myPeer.publicKey
+                            .keyToBin()
                     if (block.publicKey.toHex() == mykey.toHex() && block.isProposal) return ValidationResult.Valid
 
                     if (block.isProposal) {
@@ -1504,9 +1539,10 @@ class TransactionRepository(
                             return ValidationResult.Invalid(
                                 listOf(
                                     "Linked transaction doesn't match (${block.transaction}, ${
-                                        database.getLinked(
-                                            block
-                                        )?.transaction ?: "MISSING"
+                                        database
+                                            .getLinked(
+                                                block
+                                            )?.transaction ?: "MISSING"
                                     })"
                                 )
                             )
@@ -1670,6 +1706,9 @@ class TransactionRepository(
             }
         )
     }
+    fun getLatestBlock(publicKey: ByteArray): TrustChainBlock? {
+        return trustChainCommunity.database.getLatest(publicKey)
+    }
 
     fun initTrustChainCommunity() {
         addTransferListeners()
@@ -1690,11 +1729,11 @@ class TransactionRepository(
 //            return instance
 //        }
 
-        fun prettyAmount(amount: Long): String {
-            return "€" + (amount / 100).toString() + "," +
-                (abs(amount) % 100).toString()
+        fun prettyAmount(amount: Long): String =
+            "€" + (amount / 100).toString() + "," +
+                (abs(amount) % 100)
+                    .toString()
                     .padStart(2, '0')
-        }
 
         const val BLOCK_TYPE_TRANSFER = "eurotoken_transfer"
         const val BLOCK_TYPE_CREATE = "eurotoken_creation"
@@ -1703,6 +1742,9 @@ class TransactionRepository(
         const val BLOCK_TYPE_ROLLBACK = "eurotoken_rollback"
         const val BLOCK_TYPE_JOIN = "eurotoken_join"
         const val BLOCK_TYPE_TRADE = "eurotoken_trade"
+        const val KEY_BOND_RECEIVER = "bond_receiver"
+        const val KEY_BOND_EXPIRY = "bond_expiry"
+        const val BLOCK_TYPE_ONE_SHOT_BOND = "one_shot_bond"
 
         @Suppress("ktlint:standard:property-naming")
         val EUROTOKEN_TYPES =
@@ -1721,6 +1763,8 @@ class TransactionRepository(
         const val KEY_TRANSACTION_HASH = "transaction_hash"
         const val KEY_PAYMENT_ID = "payment_id"
         const val KEY_IBAN = "iban"
+        const val KEY_BOND_ID = "bond_id"
+
         var initialBalance: Long = 0
     }
 }

@@ -6,6 +6,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
+import android.util.Log
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
@@ -27,9 +28,13 @@ import org.json.JSONException
 import org.json.JSONObject
 import nl.tudelft.trustchain.eurotoken.common.Mode
 import androidx.core.os.bundleOf
+import nl.tudelft.ipv8.Peer
+import nl.tudelft.ipv8.keyvault.defaultCryptoProvider
+import nl.tudelft.ipv8.util.hexToBytes
 import nl.tudelft.trustchain.eurotoken.common.TransactionArgs
 import nl.tudelft.trustchain.eurotoken.common.Channel
 import nl.tudelft.trustchain.common.eurotoken.EurotokenPreferences
+import nl.tudelft.trustchain.eurotoken.community.EuroTokenCommunity
 
 class TransferFragment : EurotokenBaseFragment(R.layout.fragment_transfer_euro) {
     private val binding by viewBinding(FragmentTransferEuroBinding::bind)
@@ -180,6 +185,24 @@ class TransferFragment : EurotokenBaseFragment(R.layout.fragment_transfer_euro) 
         }
     }
 
+    /**
+     * Find a [Peer] in the network by its public key.
+     * @param pubKey : The public key of the peer to find.
+     */
+    private fun findPeer(pubKey: String): Peer? {
+        val itr = transactionRepository.trustChainCommunity.getPeers().listIterator()
+        while (itr.hasNext()) {
+            val cur: Peer = itr.next()
+            Log.d("EUROTOKEN", cur.key.pub().toString())
+            if (cur.key.pub().toString() == pubKey) {
+                return cur
+            }
+        }
+
+        return null
+    }
+
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         qrCodeUtils.parseActivityResult(requestCode, resultCode, data)?.let {
             try {
@@ -194,6 +217,21 @@ class TransferFragment : EurotokenBaseFragment(R.layout.fragment_transfer_euro) 
                         name = connectionData.name,
                         qrData = null
                     )
+
+                    // Try to send trust and vouch data to the peer
+                    try {
+                        val peer = findPeer(
+                            defaultCryptoProvider.keyFromPublicBin(connectionData.publicKey.hexToBytes())
+                                .toString()
+                        )
+                        val euroTokenCommunity = getIpv8().getOverlay<EuroTokenCommunity>()
+                        if (peer != null && euroTokenCommunity != null) {
+                            euroTokenCommunity.sendAddressesOfLastTransactions(peer)
+                            euroTokenCommunity.sendVouchData(peer)
+                        }
+                    } catch (e: Exception) {
+                        logger.error { e }
+                    }
 
                     findNavController().navigate(
                         R.id.action_transferFragment_to_sendMoneyFragment,

@@ -1,0 +1,57 @@
+dropVouchTable:
+DROP TABLE IF EXISTS vouches;
+
+createVouchTable:
+CREATE TABLE IF NOT EXISTS vouches (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    vouched_for_pub_key BLOB NOT NULL,
+    amount INTEGER NOT NULL,
+    expiry_date INTEGER NOT NULL,
+    created_date INTEGER NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    is_active INTEGER NOT NULL DEFAULT 1,
+    is_received INTEGER NOT NULL DEFAULT 0,
+    sender_pub_key BLOB
+);
+
+getAll:
+SELECT * FROM vouches ORDER BY created_date DESC;
+
+getAllActive:
+SELECT * FROM vouches WHERE is_active = 1 ORDER BY created_date DESC;
+
+getOwnActive:
+SELECT * FROM vouches WHERE is_active = 1 AND is_received = 0 ORDER BY created_date DESC;
+
+getReceivedActive:
+SELECT * FROM vouches WHERE is_active = 1 AND is_received = 1 ORDER BY created_date DESC;
+
+getByPubKey:
+SELECT * FROM vouches WHERE vouched_for_pub_key = ? ORDER BY created_date DESC;
+
+getActiveByPubKey:
+SELECT * FROM vouches WHERE vouched_for_pub_key = ? AND is_active = 1 ORDER BY created_date DESC;
+
+addVouch:
+INSERT INTO vouches (vouched_for_pub_key, amount, expiry_date, created_date, description, is_active, is_received, sender_pub_key)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+updateVouch:
+UPDATE vouches 
+SET amount = ?, expiry_date = ?, description = ?, is_active = ?
+WHERE id = ?;
+
+deactivateVouch:
+UPDATE vouches SET is_active = 0 WHERE id = ?;
+
+deleteVouch:
+DELETE FROM vouches WHERE id = ?;
+
+deleteExpiredVouches:
+DELETE FROM vouches WHERE expiry_date < ?;
+
+getTotalVouchedAmount:
+SELECT COALESCE(SUM(amount), 0) FROM vouches WHERE is_active = 1 AND expiry_date > ?; 
+
+getTotalOwnVouchedAmount:
+SELECT COALESCE(SUM(amount), 0) FROM vouches WHERE is_active = 1 AND is_received = 0 AND expiry_date > ?; 

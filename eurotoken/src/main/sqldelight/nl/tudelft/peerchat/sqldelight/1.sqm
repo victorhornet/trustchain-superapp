@@ -1,0 +1,4 @@
+CREATE INDEX IF NOT EXISTS index_bonds_lender ON bonds(lender_public_key);
+CREATE INDEX IF NOT EXISTS index_bonds_receiver ON bonds(receiver_public_key);
+CREATE INDEX IF NOT EXISTS index_bonds_status ON bonds(status);
+CREATE INDEX IF NOT EXISTS index_bonds_expired_at ON bonds(expired_at); 

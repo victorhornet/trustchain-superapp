@@ -9,6 +9,9 @@ import nl.tudelft.trustchain.common.eurotoken.benchmarks.UsageAnalyticsDatabase
 import nl.tudelft.trustchain.common.eurotoken.benchmarks.UsageBenchmarkCalculator
 import nl.tudelft.trustchain.common.eurotoken.benchmarks.UsageLogger
 import nl.tudelft.trustchain.common.eurotoken.worker.SyncWorker
+
+
+
 class EuroTokenMainActivity : BaseActivity() {
     override val navigationGraph = R.navigation.nav_graph_eurotoken
     override val bottomNavigationMenu = R.menu.eurotoken_navigation_menu

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:padding="8dp">
+
+    <TextView
+        android:id="@+id/txtBondId"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Bond ID"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/txtAmount"
+        android:layout_marginEnd="8dp"/>
+
+    <TextView
+        android:id="@+id/txtAmount"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="€0.00"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@id/txtBondId"
+        android:layout_marginEnd="8dp"/>
+
+    <TextView
+        android:id="@+id/txtCounterparty"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Counterparty"
+        app:layout_constraintTop_toBottomOf="@id/txtBondId"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="8dp"/>
+
+    <Button
+        android:id="@+id/btnClaim"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Claim"
+        app:layout_constraintTop_toBottomOf="@id/txtCounterparty"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="8dp"/>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

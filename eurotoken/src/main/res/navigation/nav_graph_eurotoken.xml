@@ -90,6 +90,10 @@
         android:label="Trust Scores database"
         tools:layout="@layout/fragment_trust_scores" />
     <fragment
+        android:id="@+id/vouchesFragment"
+        android:name="nl.tudelft.trustchain.eurotoken.ui.vouches.VouchesFragment"
+        android:label="Vouch Management" />
+    <fragment
         android:id="@+id/destroyMoneyFragment"
         android:name="nl.tudelft.trustchain.eurotoken.ui.exchange.DestroyMoneyFragment"
         android:label="Selling EuroToken"
@@ -168,4 +172,14 @@
             app:destination="@id/requestMoneyFragment" />
     </dialog>
 
+
+    <fragment
+        android:id="@+id/loanPayoutFragment"
+        android:name="nl.tudelft.trustchain.eurotoken.ui.bonds.LoanPayoutFragment"
+        android:label="Request Payout" />
+
+    <fragment
+        android:id="@+id/bondsFragment"
+        android:name="nl.tudelft.trustchain.eurotoken.ui.bonds.BondsFragment"
+        android:label="My Bonds" />
 </navigation>
