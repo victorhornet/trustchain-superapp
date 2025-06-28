@@ -1,4 +1,4 @@
-package nl.tudelft.trustchain.eurotoken.benchmarks // Adjusted package
+package nl.tudelft.trustchain.common.eurotoken.benchmarks // Adjusted package
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey

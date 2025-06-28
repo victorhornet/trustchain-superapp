@@ -1,77 +1,142 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical">
+    android:layout_height="match_parent">
 
     <ScrollView
+        android:id="@+id/qrModeLayout"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1">
+        android:layout_height="match_parent"
+        android:visibility="gone"
+        tools:visibility="gone">
 
-        <androidx.constraintlayout.widget.ConstraintLayout
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:clipToPadding="false"
-            android:orientation="vertical"
-            android:padding="16dp">
+            android:orientation="vertical">
 
-            <TextView
-                android:id="@+id/txtIntro"
+            <androidx.constraintlayout.widget.ConstraintLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Have the sending party scan this code, then press done"
-                app:layout_constraintTop_toTopOf="parent" />
+                android:clipToPadding="false"
+                android:orientation="vertical"
+                android:padding="16dp">
 
-            <TextView
-                android:id="@+id/txtRequest"
+                <TextView
+                    android:id="@+id/txtIntro"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Have the sending party scan this code, then press done"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <TextView
+                    android:id="@+id/txtRequest"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:gravity="center_horizontal"
+                    android:text="Requesting"
+                    android:textColor="@color/text_primary"
+                    android:textStyle="bold"
+                    app:layout_constraintTop_toBottomOf="@id/txtIntro" />
+
+                <TextView
+                    android:id="@+id/txtRequestData"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:gravity="center_horizontal"
+                    android:text="1234567890"
+                    app:layout_constraintTop_toBottomOf="@id/txtRequest" />
+
+                <ImageView
+                    android:id="@+id/qr"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    app:layout_constraintDimensionRatio="H,1:1"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/txtRequestData" />
+
+                <Button
+                    android:id="@+id/btn_nfc_request"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="Tap via NFC (Test)"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/qr" />
+
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnContinue_qr"
+                style="@style/Button"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:gravity="center_horizontal"
-                android:text="Requesting"
-                android:textColor="@color/text_primary"
-                android:textStyle="bold"
-                app:layout_constraintTop_toBottomOf="@id/txtIntro" />
-
-            <TextView
-                android:id="@+id/txtRequestData"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:fontFamily="monospace"
-                android:gravity="center_horizontal"
-                android:text="1234567890"
-                app:layout_constraintTop_toBottomOf="@id/txtRequest" />
-
-            <ImageView
-                android:id="@+id/qr"
-                android:layout_width="match_parent"
-                android:layout_height="0dp"
-                app:layout_constraintDimensionRatio="H,1:1"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/txtRequestData" />
-
-            <Button
-                android:id="@+id/btn_nfc_request"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Tap via NFC (Test)"
-                android:layout_marginTop="16dp"
-                app:layout_constraintTop_toBottomOf="@id/qr"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"/>
-
-        </androidx.constraintlayout.widget.ConstraintLayout>
+                android:layout_margin="16dp"
+                android:text="Done"
+                app:layout_constraintBottom_toBottomOf="parent" />
+        </LinearLayout>
     </ScrollView>
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnContinue"
-        style="@style/Button"
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/nfcTerminalModeLayout"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_margin="16dp"
-        android:text="Done"
-        app:layout_constraintBottom_toBottomOf="parent" />
-</LinearLayout>
+        android:layout_height="match_parent"
+        android:visibility="gone"
+        tools:visibility="visible">
+
+        <TextView
+            android:id="@+id/txtAmountNfc"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/text_primary"
+            android:textSize="48sp"
+            android:textStyle="bold"
+            app:layout_constraintBottom_toTopOf="@+id/iv_nfc_waiting_animation"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_chainStyle="packed"
+            tools:text="€12.34" />
+
+        <ImageView
+            android:id="@+id/iv_nfc_waiting_animation"
+            android:layout_width="150dp"
+            android:layout_height="150dp"
+            android:src="@drawable/ripple_animation"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/txtAmountNfc"
+            tools:visibility="visible" />
+
+        <TextView
+            android:id="@+id/txtStatusNfc"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="@string/waiting_for_customer"
+            android:textAppearance="@style/TextAppearance.AppCompat.Medium"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/iv_nfc_waiting_animation" />
+
+        <Button
+            android:id="@+id/btnContinue"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Cancel"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

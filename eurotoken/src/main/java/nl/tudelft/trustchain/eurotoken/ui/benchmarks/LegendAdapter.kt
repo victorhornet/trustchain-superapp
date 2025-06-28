@@ -16,35 +16,35 @@ data class LegendItem(
 )
 
 class LegendAdapter : RecyclerView.Adapter<LegendAdapter.LegendViewHolder>() {
-    
+
     private var items = listOf<LegendItem>()
-    
+
     fun setItems(newItems: List<LegendItem>) {
         items = newItems
         notifyDataSetChanged()
     }
-    
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): LegendViewHolder {
         val view = LayoutInflater.from(parent.context)
             .inflate(R.layout.item_legend, parent, false)
         return LegendViewHolder(view)
     }
-    
+
     override fun onBindViewHolder(holder: LegendViewHolder, position: Int) {
         holder.bind(items[position])
     }
-    
+
     override fun getItemCount() = items.size
-    
+
     class LegendViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val colorIndicator: View = itemView.findViewById(R.id.colorIndicator)
         private val titleText: TextView = itemView.findViewById(R.id.txtLegendTitle)
         private val subtitleText: TextView = itemView.findViewById(R.id.txtLegendSubtitle)
-        
+
         fun bind(item: LegendItem) {
             titleText.text = "${item.label} (${String.format("%.1f%%", item.percentage)})"
             subtitleText.text = "Average: ${item.duration}"
-            
+
             // Set the color indicator
             val drawable = colorIndicator.background as? GradientDrawable
             drawable?.setColor(item.color)

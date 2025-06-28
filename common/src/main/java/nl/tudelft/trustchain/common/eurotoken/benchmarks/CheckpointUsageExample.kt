@@ -1,4 +1,4 @@
-package nl.tudelft.trustchain.eurotoken.benchmarks
+package nl.tudelft.trustchain.common.eurotoken.benchmarks
 
 /**
  * Example showing how to use the transaction checkpoint logging system
@@ -111,12 +111,12 @@ suspend fun exampleViewBreakdown(calculator: UsageBenchmarkCalculator) {
     val breakdown = calculator.calculateTransactionBreakdown("some-transaction-id")
     breakdown?.let {
         println("Transaction ${it.transactionId} took ${it.totalDurationMs}ms total:")
-        
+
         it.checkpointTimings.forEach { timing ->
             val percentage = timing.totalDurationMs.toDouble() / it.totalDurationMs * 100
             println("  ${timing.name}: ${timing.totalDurationMs}ms (${percentage.format(1)}%) - ${timing.occurrences} occurrences")
         }
-        
+
         println("  Other: ${it.otherDurationMs}ms (${it.otherPercentage.format(1)}%)")
     }
 

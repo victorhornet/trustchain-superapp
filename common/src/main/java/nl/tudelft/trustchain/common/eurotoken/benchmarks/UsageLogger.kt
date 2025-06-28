@@ -1,4 +1,4 @@
-package nl.tudelft.trustchain.eurotoken.benchmarks
+package nl.tudelft.trustchain.common.eurotoken.benchmarks
 
 import android.content.Context
 import android.util.Log
@@ -14,7 +14,6 @@ object UsageLogger {
     private var currentTransactionId: String? = null
     private var currentTransferId: String? = null
     private val activeCheckpoints = mutableMapOf<String, Long>() // checkpointName -> startTimestamp
-
 
     fun initialize(context: Context) {
         if (dao == null) {
@@ -47,7 +46,7 @@ object UsageLogger {
             throw IllegalStateException("logTransactionError called before logTransactionStart")
         }
         val event = TransactionErrorEvent(
-            transactionId = currentTransactionId !!,
+            transactionId = currentTransactionId!!,
             timestamp = getCurrentTimestamp(),
             error = error
         )
@@ -60,7 +59,7 @@ object UsageLogger {
             throw IllegalStateException("logTransactionCancel called before logTransactionStart")
         }
         val event = TransactionCancelEvent(
-            transactionId = currentTransactionId !!,
+            transactionId = currentTransactionId!!,
             timestamp = getCurrentTimestamp(),
             reason = reason
         )
@@ -74,7 +73,7 @@ object UsageLogger {
             return
         }
         val event = TransactionDoneEvent(
-            transactionId = currentTransactionId !!,
+            transactionId = currentTransactionId!!,
             timestamp = getCurrentTimestamp()
         )
         scope.launch { dao?.insertTransactionDoneEvent(event) }
@@ -82,13 +81,13 @@ object UsageLogger {
         Log.i("UsageLogger", "Transaction done")
     }
 
-    fun logTransferStart( direction: TransferDirection, payloadSize: Int?): String {
+    fun logTransferStart(direction: TransferDirection, payloadSize: Int?): String {
         if (currentTransactionId == null) {
             throw IllegalStateException("logTransferStart called before logTransactionStart")
         }
         val transferId = generateTransferId()
         val event = TransferStartEvent(
-            transactionId = currentTransactionId !!,
+            transactionId = currentTransactionId!!,
             transferId = transferId,
             timestamp = getCurrentTimestamp(),
             payloadSize = payloadSize ?: 0,
@@ -108,8 +107,8 @@ object UsageLogger {
             throw IllegalStateException("logTransferDone called before logTransferStart")
         }
         val event = TransferDoneEvent(
-            transferId = currentTransferId !!,
-            transactionId = currentTransactionId !!,
+            transferId = currentTransferId!!,
+            transactionId = currentTransactionId!!,
             timestamp = getCurrentTimestamp(),
             receivedPayload = receivedPayload
         )
@@ -122,7 +121,7 @@ object UsageLogger {
             return
         }
         val event = TransferErrorEvent(
-            transferId = currentTransferId !!,
+            transferId = currentTransferId!!,
             timestamp = getCurrentTimestamp(),
             error = error
         )
@@ -135,7 +134,7 @@ object UsageLogger {
             return
         }
         val event = TransferCancelledEvent(
-            transferId = currentTransferId !!,
+            transferId = currentTransferId!!,
             timestamp = getCurrentTimestamp()
         )
         scope.launch { dao?.insertTransferCancelledEvent(event) }
@@ -168,7 +167,7 @@ object UsageLogger {
             timestamp = timestamp
         )
         scope.launch { dao?.insertTransactionCheckpointEndEvent(event) }
-        
+
         // Calculate duration if start was logged
         val startTime = activeCheckpoints[checkpointName]
         val duration = if (startTime != null) timestamp - startTime else null

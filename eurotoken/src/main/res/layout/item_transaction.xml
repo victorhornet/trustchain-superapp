@@ -111,6 +111,20 @@
         app:layout_constraintTop_toTopOf="@id/txtType"
         tools:text="P+A" />
 
+    <ImageView
+        android:id="@+id/syncStatusIcon"
+        android:layout_width="16dp"
+        android:layout_height="16dp"
+        android:layout_marginStart="8dp"
+        app:layout_constraintBottom_toBottomOf="@+id/txtBalance"
+        app:layout_constraintStart_toEndOf="@+id/txtBalance"
+        app:layout_constraintTop_toTopOf="@+id/txtBalance"
+        tools:src="@drawable/ic_cloud_queue"
+        app:tint="@color/text_secondary"
+        android:visibility="gone"
+        tools:visibility="visible"
+        android:contentDescription="Transaction sync status" />
+
     <TextView
         android:id="@+id/txtBalance"
         android:layout_width="0dp"

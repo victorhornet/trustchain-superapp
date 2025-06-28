@@ -1,0 +1,16 @@
+<!-- <?xml version="1.0" encoding="utf-8"?>
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/ripple_circle">
+    <target
+        android:name="ripple"
+        android:animation="@animator/ripple_scale" />
+</animated-vector> -->
+
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="oval">
+            <stroke android:width="2dp" android:color="@color/primary"/>
+            <solid android:color="@android:color/transparent"/>
+        </shape>
+    </item>
+</layer-list>

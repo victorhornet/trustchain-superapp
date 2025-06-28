@@ -1,4 +1,4 @@
-package nl.tudelft.trustchain.eurotoken.benchmarks // Adjusted package
+package nl.tudelft.trustchain.common.eurotoken.benchmarks // Adjusted package
 
 import androidx.room.Dao
 import androidx.room.Insert

@@ -11,7 +11,11 @@ data class Transaction(
     val amount: Long,
     val type: String,
     val outgoing: Boolean,
-    val timestamp: Date
+    val timestamp: Date,
+//    val isSynced: Boolean = false,
+//    val isOffline: Boolean = false
+    val syncStatus: String = "Synced" // Pending / Syncing / Synced
+
 ) {
     override fun equals(other: Any?): Boolean {
         return other is Transaction &&

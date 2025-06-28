@@ -19,13 +19,13 @@ import nl.tudelft.ipv8.util.toHex
 import nl.tudelft.trustchain.common.contacts.ContactStore
 import nl.tudelft.trustchain.common.eurotoken.TransactionRepository
 import nl.tudelft.trustchain.common.util.QRCodeUtils
-import nl.tudelft.trustchain.eurotoken.EuroTokenMainActivity
 import nl.tudelft.trustchain.eurotoken.R
 import nl.tudelft.trustchain.eurotoken.databinding.FragmentExchangeBinding
 import nl.tudelft.trustchain.eurotoken.ui.EurotokenBaseFragment
 import nl.tudelft.trustchain.eurotoken.ui.transfer.TransferFragment
 import org.json.JSONException
 import org.json.JSONObject
+import nl.tudelft.trustchain.common.eurotoken.EurotokenPreferences
 
 // TODO: Rename parameter arguments, choose names that match
 // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
@@ -143,12 +143,12 @@ class ExchangeFragment : EurotokenBaseFragment() {
 
                 val pref =
                     requireContext().getSharedPreferences(
-                        EuroTokenMainActivity.EurotokenPreferences.EUROTOKEN_SHARED_PREF_NAME,
+                        EurotokenPreferences.EUROTOKEN_SHARED_PREF_NAME,
                         Context.MODE_PRIVATE
                     )
                 val demoModeEnabled =
                     pref.getBoolean(
-                        EuroTokenMainActivity.EurotokenPreferences.DEMO_MODE_ENABLED,
+                        EurotokenPreferences.DEMO_MODE_ENABLED,
                         false
                     )
 

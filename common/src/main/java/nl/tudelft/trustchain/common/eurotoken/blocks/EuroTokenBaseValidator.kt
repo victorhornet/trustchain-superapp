@@ -13,6 +13,9 @@ import nl.tudelft.trustchain.common.eurotoken.getVerifiedBalanceForBlock
 
 open class EuroTokenBaseValidator(val transactionRepository: TransactionRepository) :
     TransactionValidator {
+
+    // offline tracking-> needs different validator
+    var isOfflineMode = false
     private fun getBlockBeforeOrRaise(
         block: TrustChainBlock,
         database: TrustChainStore

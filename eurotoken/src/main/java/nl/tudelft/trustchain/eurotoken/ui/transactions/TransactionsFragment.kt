@@ -23,11 +23,11 @@ import nl.tudelft.trustchain.common.contacts.ContactStore
 import nl.tudelft.trustchain.common.eurotoken.Transaction
 import nl.tudelft.trustchain.common.eurotoken.TransactionRepository
 import nl.tudelft.trustchain.common.util.viewBinding
-import nl.tudelft.trustchain.eurotoken.EuroTokenMainActivity
 import nl.tudelft.trustchain.eurotoken.R
 import nl.tudelft.trustchain.eurotoken.community.EuroTokenCommunity
 import nl.tudelft.trustchain.eurotoken.databinding.FragmentTransactionsBinding
 import nl.tudelft.trustchain.eurotoken.ui.EurotokenBaseFragment
+import nl.tudelft.trustchain.common.eurotoken.EurotokenPreferences
 
 class TransactionsFragment : EurotokenBaseFragment(R.layout.fragment_transactions) {
     private val binding by viewBinding(FragmentTransactionsBinding::bind)
@@ -134,12 +134,12 @@ class TransactionsFragment : EurotokenBaseFragment(R.layout.fragment_transaction
                 adapter.notifyDataSetChanged()
                 val pref =
                     requireContext().getSharedPreferences(
-                        EuroTokenMainActivity.EurotokenPreferences.EUROTOKEN_SHARED_PREF_NAME,
+                        EurotokenPreferences.EUROTOKEN_SHARED_PREF_NAME,
                         Context.MODE_PRIVATE
                     )
                 val demoModeEnabled =
                     pref.getBoolean(
-                        EuroTokenMainActivity.EurotokenPreferences.DEMO_MODE_ENABLED,
+                        EurotokenPreferences.DEMO_MODE_ENABLED,
                         false
                     )
 
@@ -175,12 +175,12 @@ class TransactionsFragment : EurotokenBaseFragment(R.layout.fragment_transaction
                 adapter.updateItems(it)
                 val pref =
                     requireContext().getSharedPreferences(
-                        EuroTokenMainActivity.EurotokenPreferences.EUROTOKEN_SHARED_PREF_NAME,
+                        EurotokenPreferences.EUROTOKEN_SHARED_PREF_NAME,
                         Context.MODE_PRIVATE
                     )
                 val demoModeEnabled =
                     pref.getBoolean(
-                        EuroTokenMainActivity.EurotokenPreferences.DEMO_MODE_ENABLED,
+                        EurotokenPreferences.DEMO_MODE_ENABLED,
                         false
                     )
 

@@ -7,97 +7,103 @@
     android:orientation="vertical"
     tools:context=".ui.transfer.TransferFragment">
 
-    <androidx.constraintlayout.widget.ConstraintLayout
-        android:id="@+id/missingNameLayout"
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/missingNameCard"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="16dp"
-        android:layout_marginEnd="16dp"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginTop="8dp"
+        app:cardCornerRadius="8dp"
+        app:cardElevation="2dp"
+        app:cardBackgroundColor="@color/light_gray"
         android:visibility="gone"
         tools:visibility="visible">
-
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/textFieldMissingName"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-            android:layout_width="0dp"
+        
+        <LinearLayout
+            android:id="@+id/missingNameLayout"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Your Name" app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toStartOf="@+id/btnAdd"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent">
+            android:orientation="vertical"
+            android:padding="12dp">
+            
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Please add your name so others can identify you"
+                android:textSize="14sp"
+                android:textColor="@color/text_primary" />
 
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/edtMissingName"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="textPersonName" />
-        </com.google.android.material.textfield.TextInputLayout>
+                android:layout_marginTop="8dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
 
-        <Button
-            android:id="@+id/btnAdd"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:text="Add" app:layout_constraintBottom_toBottomOf="@+id/textFieldMissingName"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toEndOf="@+id/textFieldMissingName"
-            app:layout_constraintTop_toTopOf="@+id/textFieldMissingName" />
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/textFieldMissingName"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:hint="Your Name">
 
-    </androidx.constraintlayout.widget.ConstraintLayout>
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/edtMissingName"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="textPersonName" />
+                </com.google.android.material.textfield.TextInputLayout>
 
-    <androidx.constraintlayout.widget.ConstraintLayout
-        android:id="@+id/balanceLayout"
+                <Button
+                    android:id="@+id/btnAdd"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:minWidth="0dp"
+                    android:text="Add" />
+
+            </LinearLayout>
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/balanceCard"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
+        android:layout_marginHorizontal="16dp"
         android:layout_marginTop="8dp"
-        android:layout_marginEnd="16dp"
-        android:background="#EEEEEE" android:padding="16dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/missingNameLayout">
+        app:cardCornerRadius="12dp"
+        app:cardElevation="4dp">
 
-        <TextView
-            android:id="@+id/txtOwnName"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textStyle="bold"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            tools:text="Your Name Here" />
+            android:orientation="vertical"
+            android:padding="16dp"
+            android:gravity="center">
 
-        <TextView
-            android:id="@+id/txtOwnPublicKey"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="8dp"
-            android:ellipsize="end"
-            android:lines="1"
-            android:typeface="monospace"
-            app:layout_constraintEnd_toStartOf="@+id/txtBalance"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/txtOwnName"
-            tools:text="YOUR_PUB_KEY_HERE_LONG..." />
+            <TextView
+                android:id="@+id/txtOwnName"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Your balance"
+                android:textSize="14sp"
+                android:textColor="@color/text_secondary" />
 
-        <TextView
-            android:id="@+id/txtBalance"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textSize="20sp"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            tools:text="123.45 EUR" />
+            <TextView
+                android:id="@+id/txtBalance"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textSize="36sp"
+                android:textStyle="bold"
+                android:textColor="@color/primary"
+                tools:text="€123.45" />
 
-    </androidx.constraintlayout.widget.ConstraintLayout>
-
-    <View
-        android:id="@+id/divider"
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:layout_marginTop="8dp"
-        android:background="?android:attr/listDivider" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
 
     <ScrollView
         android:layout_width="match_parent"
@@ -105,80 +111,132 @@
         android:layout_weight="1"
         android:fillViewport="true">
 
-        <androidx.constraintlayout.widget.ConstraintLayout
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:orientation="vertical"
             android:padding="16dp">
 
-            <TextView
-                android:id="@+id/txtIntro"
-                android:layout_width="0dp"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/intro_transfer_method" android:textAppearance="?attr/textAppearanceHeadline6"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent" />
+                android:layout_marginTop="20dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="@drawable/rounded_edittext_background"
+                android:padding="12dp">
+                
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+                    
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Your ID"
+                        android:textSize="12sp"
+                        android:textColor="@color/text_secondary" />
+                        
+                    <TextView
+                        android:id="@+id/txtOwnPublicKey"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:ellipsize="middle"
+                        android:lines="1"
+                        android:typeface="monospace"
+                        android:textColor="@color/text_primary"
+                        android:textSize="13sp"
+                        tools:text="abc123def456..." />
+                        
+                </LinearLayout>
+                
+                <ImageButton
+                    android:id="@+id/btnCopyPublicKey"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:layout_marginStart="12dp"
+                    android:background="?android:attr/selectableItemBackgroundBorderless"
+                    android:src="@drawable/ic_baseline_content_copy_24"
+                    android:contentDescription="Copy your ID"
+                    app:tint="@color/primary" />
+                    
+            </LinearLayout>
 
-            <EditText
-                android:id="@+id/edtAmount"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:gravity="center"
-                android:hint="0.00"
-                android:inputType="numberDecimal"
-                android:minWidth="120dp"
-                android:textSize="32sp"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/txtIntro" />
-            
-            <TextView
-                android:id="@+id/txtExtraPayloadLabel"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="Extra payload bytes (for testing):"
-                android:textSize="14sp"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/edtAmount" />
-
-            <EditText
-                android:id="@+id/edtExtraPayloadBytes"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:gravity="center"
-                android:hint="0"
-                android:inputType="number"
-                android:minWidth="100dp"
-                android:textSize="16sp"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/txtExtraPayloadLabel" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnRequestQR" style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="0dp"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
-                android:text="@string/action_request_payment"
-                app:icon="@drawable/ic_baseline_incoming_24"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/edtExtraPayloadBytes" />
+                android:orientation="vertical">
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnSendQR" style="@style/Widget.MaterialComponents.Button"
-                android:layout_width="0dp"
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Extra payload bytes (for testing):"
+                    android:textSize="12sp"
+                    android:textColor="@color/text_secondary" />
+
+                <EditText
+                    android:id="@+id/edtExtraPayloadBytes"
+                    android:layout_width="match_parent"
+                    android:layout_height="40dp"
+                    android:layout_marginTop="6dp"
+                    android:hint="0"
+                    android:inputType="number"
+                    android:textSize="14sp"
+                    android:background="@drawable/rounded_edittext_background"
+                    android:padding="10dp" />
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:text="@string/action_send_payment"
-                app:icon="@drawable/ic_baseline_outgoing_24"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/btnRequestQR" />
+                android:layout_marginTop="32dp"
+                android:orientation="horizontal">
 
-        </androidx.constraintlayout.widget.ConstraintLayout>
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnSend"
+                    style="@style/Widget.MaterialComponents.Button"
+                    android:layout_width="0dp"
+                    android:layout_height="60dp"
+                    android:layout_marginEnd="12dp"
+                    android:layout_weight="1"
+                    android:text="Pay"
+                    android:textSize="16sp"
+                    android:textAllCaps="false"
+                    app:icon="@drawable/ic_baseline_outgoing_24"
+                    app:iconSize="20dp"
+                    app:cornerRadius="12dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnReceive"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="60dp"
+                    android:layout_marginStart="12dp"
+                    android:layout_weight="1"
+                    android:text="Receive"
+                    android:textSize="16sp"
+                    android:textAllCaps="false"
+                    app:icon="@drawable/ic_baseline_incoming_24"
+                    app:iconSize="20dp"
+                    app:cornerRadius="12dp" />
+
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="16dp"
+                android:text="Choose NFC (tap) or QR (scan) when prompted"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp"
+                android:gravity="center" />
+
+        </LinearLayout>
     </ScrollView>
 </LinearLayout>
