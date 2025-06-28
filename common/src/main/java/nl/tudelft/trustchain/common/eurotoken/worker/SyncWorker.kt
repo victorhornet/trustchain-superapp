@@ -10,8 +10,8 @@ import nl.tudelft.trustchain.common.eurotoken.GatewayStore
 import nl.tudelft.trustchain.common.eurotoken.TransactionRepository
 import nl.tudelft.trustchain.common.eurotoken.benchmarks.UsageAnalyticsDatabase
 
-// handles delayed gossiping when offline
-class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
+//handles delayed gossiping when offline
+class SyncWorker(appContext: Context, workerParams: WorkerParameters):
     CoroutineWorker(appContext, workerParams) {
 
     override suspend fun doWork(): Result {
@@ -29,7 +29,7 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
             val unsyncedHashes = offlineBlockSyncDao.getUnsyncedBlockHashes()
             if (unsyncedHashes.isEmpty()) {
                 Log.d("SyncWorker", "No unsynced blocks found - canceling periodic sync")
-
+            
                 cancelPeriodicSyncIfEmpty()
                 return Result.success()
             }
@@ -51,7 +51,7 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
                 applicationContext
             )
 
-            // lets sync
+            //lets sync
             transactionRepository.syncOfflineTransactions()
 
             val remainingUnsyncedHashes = offlineBlockSyncDao.getUnsyncedBlockHashes()
@@ -63,22 +63,28 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
             }
 
             Result.success()
+
         } catch (e: Exception) {
             Log.e("SyncWorker", "Sync worker failed", e)
             Result.retry()
         }
     }
 
-    // TODO remove this ugly function name
-    // works for now and clear atleast
+    //TODO remove this ugly function name
+    //works for now and clear atleast
+    // stops the 5min periodic sync check
+    // when app is relaunched
+        // eurotokenmainactivty now starts  scheduletransactionsync
+        // if so worker is started again
     private fun cancelPeriodicSyncIfEmpty() {
         WorkManager.getInstance(applicationContext)
             .cancelUniqueWork("OfflineTransactionSync")
         Log.d("SyncWorker", "Canceled periodic sync - no blocks to sync")
     }
 
+
     companion object {
-        // used when offline blocks are created so we try immediately to sync
+       // used when offline blocks are created so we try immediately to sync
         @Suppress("DEPRECATION")
         fun scheduleImmediateSync(context: Context) {
             val constraints = Constraints.Builder()
@@ -87,7 +93,7 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
 
             val immediateSync = OneTimeWorkRequestBuilder<SyncWorker>()
                 .setConstraints(constraints)
-                .setInitialDelay(2, TimeUnit.SECONDS)
+                .setInitialDelay(2, TimeUnit.SECONDS) 
                 .build()
 
             WorkManager.getInstance(context).enqueueUniqueWork(
@@ -99,6 +105,7 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
             Log.d("SyncWorker", "Scheduled immediate sync for new offline blocks")
         }
 
+       
         @Suppress("DEPRECATION")
         fun schedulePeriodicSync(context: Context) {
             val constraints = Constraints.Builder()
@@ -126,7 +133,6 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
 //     override suspend fun doWork(): Result {
 //         Log.d("SyncWorker", "Starting offline block sync")
 
-//         // Initialize dependencies required by the TransactionRepository
 //         val ipv8 = IPv8Android.getInstance()
 //         val trustChainCommunity = ipv8.getOverlay<TrustChainCommunity>()
 //             ?: return Result.failure()
@@ -141,7 +147,6 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
 //             applicationContext
 //         )
 
-//         // Call the synchronization function
 //         transactionRepository.syncOfflineTransactions()
 
 //         Log.d("SyncWorker", "Offline block sync completed")
