@@ -84,8 +84,6 @@ class VouchStore(
      */
     fun getOwnActiveVouches(): List<Vouch> = database.dbVouchQueries.getOwnActive(vouchMapper).executeAsList()
 
-
-
     /**
      * Retrieve all active vouches received from other users.
      */

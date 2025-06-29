@@ -19,7 +19,6 @@ import nl.tudelft.trustchain.eurotoken.R
 import nl.tudelft.trustchain.eurotoken.databinding.DialogCreateVouchBinding
 import nl.tudelft.trustchain.eurotoken.databinding.FragmentVouchesBinding
 import nl.tudelft.trustchain.eurotoken.db.VouchStore
-import nl.tudelft.trustchain.eurotoken.entity.TrustScore
 import nl.tudelft.trustchain.eurotoken.entity.Vouch
 import nl.tudelft.trustchain.eurotoken.ui.EurotokenBaseFragment
 import java.text.SimpleDateFormat
@@ -39,7 +38,10 @@ class VouchesFragment : EurotokenBaseFragment(R.layout.fragment_vouches) {
     private val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
     private lateinit var pagerAdapter: VouchPagerAdapter
 
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+    override fun onViewCreated(
+        view: View,
+        savedInstanceState: Bundle?
+    ) {
         super.onViewCreated(view, savedInstanceState)
 
         setupTabs()
@@ -62,17 +64,18 @@ class VouchesFragment : EurotokenBaseFragment(R.layout.fragment_vouches) {
         binding.viewPager.adapter = pagerAdapter
 
         TabLayoutMediator(binding.tabLayout, binding.viewPager) { tab, position ->
-            tab.text = when (position) {
-                0 -> "My Vouches"
-                1 -> "Received Vouches"
-                else -> "Tab $position"
-            }
+            tab.text =
+                when (position) {
+                    0 -> "My Vouches"
+                    1 -> "Received Vouches"
+                    else -> "Tab $position"
+                }
         }.attach()
     }
 
     private fun refreshTotalVouched() {
         lifecycleScope.launchWhenResumed {
-            // Update total vouched amount (only own vouches)
+            // Update total vouched amount (only own vouches, not received)
             val totalAmount = vouchStore.getTotalOwnVouchedAmount()
             val totalInEuros = totalAmount / 100.0
             binding.txtTotalVouched.text = String.format("Total Vouched: €%.2f", totalInEuros)
@@ -96,6 +99,61 @@ class VouchesFragment : EurotokenBaseFragment(R.layout.fragment_vouches) {
         }
     }
 
+    /**
+     * Validates if the user has sufficient balance to create a vouch for the given amount.
+     * @param amountInCents The amount to vouch for in cents
+     * @return true if sufficient balance is available, false otherwise
+     */
+    private fun validateVouchBalance(amountInCents: Long): Boolean {
+        val currentBalance = transactionRepository.getMyBalance()
+
+        // Handle negative balance case
+        if (currentBalance < 0) {
+            Toast.makeText(
+                requireContext(),
+                "Cannot create vouch: Your account balance is negative",
+                Toast.LENGTH_LONG
+            ).show()
+            return false
+        }
+
+        // Check 1: Individual vouch amount cannot exceed total balance
+        if (amountInCents > currentBalance) {
+            val balanceInEuros = currentBalance / 100.0
+            val requestedInEuros = amountInCents / 100.0
+            Toast.makeText(
+                requireContext(),
+                "Individual vouch amount cannot exceed your total balance.\nTotal Balance: €%.2f | Requested: €%.2f".format(
+                    balanceInEuros, requestedInEuros
+                ),
+                Toast.LENGTH_LONG
+            ).show()
+            return false
+        }
+
+        // Check 2: Available balance after considering existing vouches
+        val totalOwnVouchedAmount = vouchStore.getTotalOwnVouchedAmount()
+        val availableBalance = currentBalance - totalOwnVouchedAmount
+
+        if (amountInCents > availableBalance) {
+            val balanceInEuros = currentBalance / 100.0
+            val vouchedInEuros = totalOwnVouchedAmount / 100.0
+            val availableInEuros = availableBalance / 100.0
+            val requestedInEuros = amountInCents / 100.0
+
+            Toast.makeText(
+                requireContext(),
+                "Insufficient available balance.\nTotal: €%.2f | Already vouched: €%.2f | Available: €%.2f | Requested: €%.2f".format(
+                    balanceInEuros, vouchedInEuros, availableInEuros, requestedInEuros
+                ),
+                Toast.LENGTH_LONG
+            ).show()
+            return false
+        }
+
+        return true
+    }
+
     private fun showCreateVouchDialog() {
         val dialogView = layoutInflater.inflate(R.layout.dialog_create_vouch, null)
         val dialogBinding = DialogCreateVouchBinding.bind(dialogView)
@@ -108,13 +166,26 @@ class VouchesFragment : EurotokenBaseFragment(R.layout.fragment_vouches) {
         }
 
         // Create adapter for user selection
-        val userDisplayNames = trustScores.map { trustScore ->
-            val pubKeyHex = trustScore.pubKey.toHex()
-            "${pubKeyHex.take(16)}... (Trust: ${trustScore.trust}%)"
-        }
+        val userDisplayNames =
+            trustScores.map { trustScore ->
+                val pubKeyHex = trustScore.pubKey.toHex()
+                "${pubKeyHex.take(16)}... (Trust: ${trustScore.trust}%)"
+            }
         val userAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, userDisplayNames)
         userAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         dialogBinding.spinnerUsers.adapter = userAdapter
+
+        // Display current balance information
+        val currentBalance = transactionRepository.getMyBalance()
+        val totalVouchedAmount = vouchStore.getTotalOwnVouchedAmount()
+        val availableBalance = currentBalance - totalVouchedAmount
+        val balanceInfoText =
+            "Balance: €%.2f | Vouched: €%.2f | Available: €%.2f".format(
+                currentBalance / 100.0,
+                totalVouchedAmount / 100.0,
+                availableBalance / 100.0
+            )
+        dialogBinding.txtBalanceInfo.text = balanceInfoText
 
         var selectedDate: Date? = null
 
@@ -123,17 +194,18 @@ class VouchesFragment : EurotokenBaseFragment(R.layout.fragment_vouches) {
             val calendar = Calendar.getInstance()
             calendar.add(Calendar.MONTH, 1) // Default to 1 month from now
 
-            val datePickerDialog = DatePickerDialog(
-                requireContext(),
-                { _, year, month, dayOfMonth ->
-                    calendar.set(year, month, dayOfMonth)
-                    selectedDate = calendar.time
-                    dialogBinding.btnSelectDate.text = dateFormat.format(selectedDate!!)
-                },
-                calendar.get(Calendar.YEAR),
-                calendar.get(Calendar.MONTH),
-                calendar.get(Calendar.DAY_OF_MONTH)
-            )
+            val datePickerDialog =
+                DatePickerDialog(
+                    requireContext(),
+                    { _, year, month, dayOfMonth ->
+                        calendar.set(year, month, dayOfMonth)
+                        selectedDate = calendar.time
+                        dialogBinding.btnSelectDate.text = dateFormat.format(selectedDate!!)
+                    },
+                    calendar.get(Calendar.YEAR),
+                    calendar.get(Calendar.MONTH),
+                    calendar.get(Calendar.DAY_OF_MONTH)
+                )
 
             // Set minimum date to tomorrow
             val tomorrow = Calendar.getInstance()
@@ -143,9 +215,10 @@ class VouchesFragment : EurotokenBaseFragment(R.layout.fragment_vouches) {
             datePickerDialog.show()
         }
 
-        val dialog = AlertDialog.Builder(requireContext())
-            .setView(dialogView)
-            .create()
+        val dialog =
+            AlertDialog.Builder(requireContext())
+                .setView(dialogView)
+                .create()
 
         dialogBinding.btnCancel.setOnClickListener {
             dialog.dismiss()
@@ -167,48 +240,70 @@ class VouchesFragment : EurotokenBaseFragment(R.layout.fragment_vouches) {
                     Toast.makeText(requireContext(), "Please select an expiry date", Toast.LENGTH_SHORT).show()
                 }
                 else -> {
+                    val selectedTrustScore = trustScores[selectedUserIndex]
+                    val amount: Double
+                    val amountInCents: Long
                     try {
-                        val amount = amountText.toDouble()
+                        amount = amountText.toDouble()
                         if (amount <= 0) {
                             Toast.makeText(requireContext(), "Amount must be greater than 0", Toast.LENGTH_SHORT).show()
                             return@setOnClickListener
                         }
+                        amountInCents = (amount * 100).toLong()
+                    } catch (e: NumberFormatException) {
+                        Toast.makeText(requireContext(), "Please enter a valid amount", Toast.LENGTH_SHORT).show()
+                        return@setOnClickListener
+                    }
 
-                        val selectedTrustScore = trustScores[selectedUserIndex]
-                        val amountInCents = (amount * 100).toLong()
-                        val hours = TimeUnit.MILLISECONDS.toHours(
-                            selectedDate!!.time - Date().time
-                        ).toInt()
+                    if (!validateVouchBalance(amountInCents)) {
+                        return@setOnClickListener
+                    }
 
-                        // Show processing indicator
-                        dialogBinding.progressBar.visibility = View.VISIBLE
-                        dialogBinding.btnCreate.isEnabled = false
+                    val hours = TimeUnit.MILLISECONDS.toHours(
+                        selectedDate!!.time - Date().time
+                    ).toInt()
 
-                        lifecycleScope.launch(Dispatchers.IO) {
-                            val success = community.createVouchWithBond(
-                                vouchee = selectedTrustScore.pubKey,
-                                vouchAmount = amount, // Using the original amount (in euros)
-                                bondAmount = 0,  // Not used internally
-                                expiryHours = hours,
-                                risk = 0.0       // Not used internally
-                            )
+                    // Show processing indicator
+                    dialogBinding.progressBar.visibility = View.VISIBLE
+                    dialogBinding.btnCreate.isEnabled = false
 
-                            withContext(Dispatchers.Main) {
-                                dialogBinding.progressBar.visibility = View.GONE
-                                dialogBinding.btnCreate.isEnabled = true
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        val success = community.createVouchWithBond(
+                            vouchee = selectedTrustScore.pubKey,
+                            vouchAmount = amount, // Using the original amount (in euros)
+                            bondAmount = 0,  // Not used internally
+                            expiryHours = hours,
+                            risk = 0.0       // Not used internally
+                        )
 
-                                if (success) {
-                                    Toast.makeText(requireContext(), "Vouch created with bond collateral!", Toast.LENGTH_SHORT).show()
-                                    refreshTotalVouched()
-                                    refreshTabContents()
-                                    dialog.dismiss()
-                                } else {
-                                    Toast.makeText(requireContext(), "Vouch creation failed: Risk too high", Toast.LENGTH_SHORT).show()
-                                }
+                        withContext(Dispatchers.Main) {
+                            dialogBinding.progressBar.visibility = View.GONE
+                            dialogBinding.btnCreate.isEnabled = true
+
+                            if (success) {
+                                Toast.makeText(requireContext(), "Vouch created with bond collateral!", Toast.LENGTH_SHORT).show()
+                                refreshTotalVouched()
+                                refreshTabContents()
+                                dialog.dismiss()
+                            } else {
+                                // Fallback: Add vouch locally if risk too high
+                                val vouch = Vouch(
+                                    vouchedForPubKey = selectedTrustScore.pubKey,
+                                    amount = amountInCents,
+                                    expiryDate = selectedDate!!,
+                                    createdDate = Date(),
+                                    description = description,
+                                    isActive = true,
+                                    isReceived = false,
+                                    senderPubKey = null
+                                )
+                                vouchStore.addVouch(vouch)
+                                Toast.makeText(requireContext(), "Vouch created locally (risk too high for bond)", Toast.LENGTH_SHORT).show()
+                                dialog.dismiss()
+                                refreshTotalVouched()
+                                refreshTabContents()
                             }
                         }
-                    }  catch (e: NumberFormatException) {
-                        Toast.makeText(requireContext(), "Please enter a valid amount", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
