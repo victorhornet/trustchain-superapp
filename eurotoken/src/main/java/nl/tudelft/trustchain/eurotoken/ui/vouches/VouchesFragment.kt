@@ -101,7 +101,7 @@ class VouchesFragment : EurotokenBaseFragment(R.layout.fragment_vouches) {
      * @return true if sufficient balance is available, false otherwise
      */
     private fun validateVouchBalance(amountInCents: Long): Boolean {
-        val currentBalance = transactionRepository.getMyBalance()
+        val currentBalance = transactionRepository.getMyVerifiedBalance()
         
         // Handle negative balance case
         if (currentBalance < 0) {
@@ -172,7 +172,7 @@ class VouchesFragment : EurotokenBaseFragment(R.layout.fragment_vouches) {
         dialogBinding.spinnerUsers.adapter = userAdapter
 
         // Display current balance information
-        val currentBalance = transactionRepository.getMyBalance()
+        val currentBalance = transactionRepository.getMyVerifiedBalance()
         val totalVouchedAmount = vouchStore.getTotalOwnVouchedAmount()
         val availableBalance = currentBalance - totalVouchedAmount
         val balanceInfoText =
