@@ -242,22 +242,6 @@ Available Balance = Current Balance - Total Own Vouched Amount
 
 **Implementation:** Added two-level validation system with clear error messages for different failure scenarios.
 
-## Testing the Feature
-
-### Test Scenarios
-
-1. Create vouch with sufficient balance
-2. Attempt to create vouch exceeding balance
-3. Verify received vouches don't affect balance calculation
-4. Check balance updates after recent transactions
-
-### Manual Testing
-
-1. Send/receive money to change balance
-2. Create vouches and verify balance calculations
-3. Test with expired vouches
-4. Verify UI updates correctly
-
 ## Future Enhancements
 
 - Vouch fulfillment mechanism
