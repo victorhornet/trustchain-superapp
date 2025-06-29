@@ -1,6 +1,6 @@
 # Added Features
 
-## Advanced Trust Score Calculation
+## 1. Advanced Trust Score Calculation
 
 To provide flexibility and allow for future research, the EuroToken application includes multiple strategies for calculating and updating a user's trust score. While a simple linear increment is the default, more nuanced models are available to better reflect complex trust dynamics.
 
@@ -23,7 +23,7 @@ Currently, the system uses a **simple linear update** (`score ← score + 1`) as
 
 This approach was chosen as the default for its simplicity, predictability, and robustness. It provides a solid and easily understandable baseline for trust calculation that works well in a general context without requiring complex parameter tuning. The more advanced functions (Decay-weighted, Threshold Boost, and Logistic Cap) are included as experimental options for future development and research into more sophisticated trust models. However, if the developer wants, he can usae any of the porvided update functions and experiment with them.
 
-## Double Spending Mitigation via Automated Collateral
+## 2. Double Spending Mitigation via Automated Collateral
 
 To address the risk of double-spending in an offline environment, EuroToken implements a system of collateralized transactions, or "bonds". This mechanism ensures that a user who receives money while offline is compensated even if the sender later double-spends those funds. The system is designed to be automatic and punitive, discouraging malicious behavior.
 
