@@ -1254,6 +1254,15 @@ class TransactionRepository(
         return trustChainCommunity.database.getLatest(publicKey)
     }
 
+    fun getBalance(publicKey: ByteArray): Long {
+        val latestBlock = trustChainCommunity.database.getLatest(publicKey)
+        return if (latestBlock == null) {
+            0
+        } else {
+            getBalanceForBlock(latestBlock, trustChainCommunity.database) ?: 0
+        }
+    }
+
     fun initTrustChainCommunity() {
         addTransferListeners()
         addJoinListeners()

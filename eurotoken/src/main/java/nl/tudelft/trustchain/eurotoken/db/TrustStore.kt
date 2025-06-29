@@ -6,6 +6,7 @@ import app.cash.sqldelight.driver.android.AndroidSqliteDriver
 import nl.tudelft.eurotoken.sqldelight.Database
 import nl.tudelft.ipv8.util.toHex
 import nl.tudelft.trustchain.eurotoken.entity.TrustScore
+import kotlin.math.exp
 
 /**
  * TrustStore stores the trust scores of other wallets.
@@ -162,14 +163,11 @@ class TrustStore(
         database.dbTrustScoreQueries.updateScore(newScore.toLong(), publicKey)
     }
 
-    fun normalizeTrustScoreSigmoid(
-        trustScore: Long,
-        mid: Double = MAX_SCORE / 2.0,
-        k: Double = 0.1
-    ): Double {
-        val x = trustScore.toDouble()
-        return 1.0 / (1.0 + kotlin.math.exp(-k * (x - mid)))
+    fun normalizeTrustScoreSigmoid(score: Long): Double {
+        // Sigmoid function: 100% trust -> 1.0, 0% trust -> 0.0
+        return 1.0 / (1.0 + exp(-0.1 * (score - 50)))
     }
+
 
     fun decrementTrust(
         publicKey: ByteArray,

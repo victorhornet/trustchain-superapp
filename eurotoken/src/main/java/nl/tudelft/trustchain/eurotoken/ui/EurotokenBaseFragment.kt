@@ -18,6 +18,7 @@ import androidx.navigation.fragment.findNavController
 import mu.KotlinLogging
 import nl.tudelft.ipv8.attestation.trustchain.BlockListener
 import nl.tudelft.ipv8.attestation.trustchain.TrustChainBlock
+import nl.tudelft.ipv8.util.hexToBytes
 import nl.tudelft.ipv8.util.toHex
 import nl.tudelft.trustchain.common.contacts.ContactStore
 import nl.tudelft.trustchain.common.eurotoken.GatewayStore
@@ -73,6 +74,19 @@ open class EurotokenBaseFragment(contentLayoutId: Int = 0) : BaseFragment(conten
             val fakeKey = Random.nextBytes(32)
             trustStore.incrementTrust(fakeKey)
             trustStore.incrementTrust(fakeKey) // Double increment for some
+        }
+        val testDeviceKeys = listOf(
+            "4c69624e61434c504b3aecede3fd460f0e167bbe7a7b4620971b84ccde1d42e05e9ace91b1004e5e584f933343dba8632822d36a317300bb944cd258c380cae57fd8ce59e3d16db3d80d",  // Replace with actual Device A key
+//            "DEVICE_B_PUBLIC_KEY_HEX"   // Replace with actual Device B key
+        )
+
+        testDeviceKeys.forEach { hexKey ->
+            val keyBytes = hexKey.hexToBytes()
+            // Add multiple increments to simulate established trust
+            repeat(70) {
+                trustStore.incrementTrust(keyBytes)
+            }
+            logger.debug { "Added test trust score for: ${keyBytes.toHex()}" }
         }
     }
     override fun onCreate(savedInstanceState: Bundle?) {

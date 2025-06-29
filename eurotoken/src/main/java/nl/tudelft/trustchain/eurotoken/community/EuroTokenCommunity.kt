@@ -602,46 +602,40 @@ class EuroTokenCommunity(
                 Log.d("Bond", "Created one-shot bond: ${block.calculateHash().toHex()}")
             }
     }
-
     fun createVouchWithBond(
         vouchee: ByteArray,
         vouchAmount: Double,
-        bondAmount: Int,
+        bondAmount: Int, // Note: This parameter is unused
         expiryHours: Int,
-        risk: Double
+        risk: Double // This parameter is unused and misleading
     ): Boolean {
-        val riskScore =
+        val confidence = // Renamed for clarity
             riskEstimator.riskEstimationFunction(
                 amount = (vouchAmount * 100).toLong(),
-                payerPublicKey = vouchee // Need to implement peer block fetch
+                payerPublicKey = vouchee
             )
 
-        // Only create vouch if risk is acceptable
-        if (riskScore < 0.5) {
-            Log.w("Vouch", "Risk too high: ${"%.2f".format(riskScore * 100)}%")
+        // Use confidence directly with threshold (0.5 = 50% confidence required)
+        if (confidence < 0.5) {
+            Log.w("Vouch", "Confidence too low: ${"%.2f".format(confidence * 100)}%")
             return false
         }
 
-        // Calculate bond amount based on risk
+        // Rest of the function remains the same...
         val trustScore = myTrustStore.getScore(vouchee) ?: 0
-        val bondAmount = calculateBondHybrid(trustScore.toLong(), vouchAmount)
-        // Create bond
-        val bondBlock =
-            createOneShotBond(
-                receiver = vouchee,
-                amount = bondAmount,
-                expiryBlocks = expiryHours * 60
-            ) ?: return false
+        val calculatedBondAmount = calculateBondHybrid(trustScore.toLong(), vouchAmount)
+
+        val bondBlock = createOneShotBond(
+            receiver = vouchee,
+            amount = calculatedBondAmount,
+            expiryBlocks = expiryHours * 60
+        ) ?: return false
 
         myVouchStore.addVouch(
             Vouch(
                 vouchedForPubKey = vouchee,
                 amount = (vouchAmount * 100).toLong(),
-                expiryDate =
-                    Date(
-                        System.currentTimeMillis() +
-                            TimeUnit.HOURS.toMillis(expiryHours.toLong())
-                    ),
+                expiryDate = Date(System.currentTimeMillis() + TimeUnit.HOURS.toMillis(expiryHours.toLong())),
                 createdDate = Date(),
                 description = "Bond ID: ${bondBlock.calculateHash().toHex()}",
                 isActive = true,
@@ -649,7 +643,6 @@ class EuroTokenCommunity(
                 senderPubKey = null
             )
         )
-
         return true
     }
 
