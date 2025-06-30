@@ -56,15 +56,26 @@ https://drive.google.com/file/d/1FB_oPv7ptMnyK5lK_DRL_F5_0A9Pk_qz/view?usp=shari
 
 ### 1. **Host Card Emulation (HCE) Architecture**
 
-- **Decision**: Implemented using Android's HCE service instead of physical NFC cards
+- **Decision**: Implemented using Android's Host Card Emulation (HCE) service instead of physical NFC cards. Device A acts as HCE and device B as Reader Mode
 - **Rationale**: Eliminates need for specialized hardware while maintaining security
 - **Trade-offs**: Requires Android 4.4+ but provides universal device compatibility
 
 ### 2. **APDU Chunking Protocol**
 
-- **Decision**: Custom chunking protocol for large transaction data
-- **Rationale**: NFC ISO-DEP has ~250-byte APDU limits, but transaction blocks can be several KB
-- **Implementation**: 240-byte chunks with 5-byte headers (flags, total chunks, chunk index)
+- **Decision**: Custom chunking protocol for large transaction data over NFC
+- **Rationale**: NFC ISO-DEP has ~255-byte ISO-DEP APDU limits, but Trustchain blocks can be several kilobytes
+- **Implementation**:
+    - Proposal Block Transfer
+        - Custom Protocol with sender-initiated control
+        - INS 0xB1 for chunk upload
+        - 5-byte header prepended to each data chunk: [Flag:1][TotalChunks:2][ChunkIndex:2]
+        - Intentional so the sender has full control over the transfer
+    - Agreement Block Transfer
+        - Intentionally not using our custom protocol, but ISO/IEC 7816-4
+        - INS 0xB2: Initial Request
+        - 61 xx: Status Word Chaing
+        - INS 0xC0: Get Response
+       
 
 ### 3. **Dual Transport Selection**
 
@@ -92,10 +103,11 @@ https://drive.google.com/file/d/1FB_oPv7ptMnyK5lK_DRL_F5_0A9Pk_qz/view?usp=shari
 - **APDU Command Handling**: Processes SELECT, GET_PAYMENT_INFO, SEND_PROPOSAL, GET_AGREEMENT commands
 - **Terminal Mode**: Activated when device acts as payment receiver
 - **Transaction Validation**: Cryptographic verification of payment proposals
+- **Assymetric Chunking**: 
 
 **Command Flow**:
 
-1. `INS_SELECT (0xA4)` - Application selection and customer connection
+1. `INS_SELECT (0xA4)` - Application selection with AID F222222222
 2. `INS_GET_PAYMENT_INFO (0xB0)` - Payment request details transmission
 3. `INS_SEND_PROPOSAL_CHUNK (0xB1)` - Chunked proposal block reception
 4. `INS_GET_AGREEMENT_CHUNK (0xB2)` - Chunked agreement block transmission
@@ -106,7 +118,7 @@ https://drive.google.com/file/d/1FB_oPv7ptMnyK5lK_DRL_F5_0A9Pk_qz/view?usp=shari
 
 **Key Features**:
 
-- **Reader Mode Configuration**: `FLAG_READER_NFC_A` with NDEF skip for performance
+- **Reader Mode Configuration**: `FLAG_READER_NFC_A` 
 - **Protocol Orchestration**: Manages complete payment flow from connection to completion
 - **Error Handling**: Comprehensive error recovery with user-friendly messages
 - **UI Feedback**: Real-time status updates with animated ripple effects
@@ -114,12 +126,14 @@ https://drive.google.com/file/d/1FB_oPv7ptMnyK5lK_DRL_F5_0A9Pk_qz/view?usp=shari
 **Communication Sequence**:
 
 ```text
-1. SELECT AID → Response with SW_OK
-2. GET PAYMENT_INFO → JSON payment request
-3. Create & validate proposal block
+1. SELECT AID → Response with SW_OK + customer connection
+2. GET PAYMENT_INFO → JSON payment request via READ BINARY
+3. Create & validate proposal block (no IPv8)
 4. SEND_PROPOSAL (chunked) → Validation on receiver
-5. GET_AGREEMENT (chunked) → Agreement block retrieval
-6. Store blocks & sync
+5. Receiver validation & agreement block creation
+6. GET_AGREEMENT (chunked) → Agreement block retrieval + Validation
+7. Transaction finalization -> local storage for both devices
+8. Background sync scheduling (find peers) 
 ```
 
 #### 3. **NfcChunkingProtocol**
@@ -143,8 +157,19 @@ https://drive.google.com/file/d/1FB_oPv7ptMnyK5lK_DRL_F5_0A9Pk_qz/view?usp=shari
 - **Amount Input**: Built-in dialog for receive amount specification
 - **Navigation**: Seamless transition to appropriate transfer fragments
 
-### Data Flow Architecture
+#### 4. **Sync Worker**
 
+**Purpose**: Smart background synchronization
+
+**Protocol Specification**:
+
+- **State**: OfflineBlockSyncState tracks (Pending -> Syncing -> Synced)
+- **Peer targeting**: Proposal blocks -> recipients, Agreement blocks -> proposers
+- **Workmanager**: Background processing based on network connectivity
+- **Adaptive**: Adjusts based on the availability of 'unsync blocks'
+
+
+### Data Flow Architecture
 ```mermaid
 sequenceDiagram
     participant S as Sender Device
@@ -157,33 +182,32 @@ sequenceDiagram
     S->>R: SELECT AID (F222222222)
     R->>S: SW_OK + Broadcast Customer Connected
     
-    S->>R: GET_PAYMENT_INFO
+    S->>R: GET_PAYMENT_INFO (READ BINARY)
     R->>S: JSON Payment Request (amount, public_key, name)
     
-    Note over S: Create Proposal Block
-    S->>S: Generate cryptographic proposal
+    Note over S: IPv8-Independent Block Creation
+    S->>S: createNfcTransferProposal() - Offline
     
-    loop Chunked Transfer
-        S->>R: SEND_PROPOSAL_CHUNK
-        R->>S: SW_OK
+    loop Custom Chunking Protocol
+        S->>R: SEND_PROPOSAL_CHUNK (INS 0xB1)
+        R->>S: SW_OK (chunk validated)
     end
     
-    Note over R: Validate & Create Agreement
-    R->>R: Validate proposal signature
-    R->>R: Generate agreement block
-    R->>DB: Store offline blocks
+    Note over R: Offline Validation & Agreement Creation
+    R->>R: validateTransferProposal() + createAgreementBlock()
+    R->>DB: storeOfflineBlock() - Both blocks
     
-    loop Chunked Response
-        S->>R: GET_AGREEMENT_CHUNK
-        R->>S: Agreement chunk + SW status
+    loop ISO 7816-4 GET RESPONSE Pattern
+        S->>R: GET_AGREEMENT_CHUNK (INS 0xB2)
+        R->>S: Agreement chunk + 61 XX or 90 00
     end
     
-    S->>S: Validate agreement
-    S->>DB: Store transaction locally
+    S->>S: Validate agreement + Store locally
+    S->>DB: storeOfflineBlock() - Complete transaction
     
-    Note over S,R: Transaction Complete
-    R->>SW: Schedule immediate sync
-    S->>SW: Schedule immediate sync
+    Note over S,R: Transaction Complete - 2.8s Average
+    R->>SW: scheduleImmediateSync()
+    S->>SW: scheduleImmediateSync()
 ```
 
 ## Implementation Details
